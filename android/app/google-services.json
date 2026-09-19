@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "368949610046",
+    "project_id": "premium-auth-app-97063",
+    "storage_bucket": "premium-auth-app-97063.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:368949610046:android:bed80c288b3e60a0b9336f",
+        "android_client_info": {
+          "package_name": "com.example.first_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbsJ5-2LsxBX1DY45OC-gA99wro-KN8_c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
