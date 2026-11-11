@@ -56,7 +56,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
-      final loggedIn = ref.read(isAuthenticatedProvider);
+      // Read the auth state itself: the derived isAuthenticatedProvider can
+      // still hold the old value while this refresh is running, which kept
+      // users on Home after Firebase had already signed them out.
+      final loggedIn = ref.read(authNotifierProvider) != null;
       final path = state.matchedLocation;
 
       final isSplash = path == '/splash';
