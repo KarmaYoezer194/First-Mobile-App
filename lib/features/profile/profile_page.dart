@@ -7,8 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/auth_service.dart' show AuthException;
 import 'package:go_router/go_router.dart';
-import '../../core/widgets/circle_icon_button.dart';
-import '../../core/widgets/common_widgets.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/widgets.dart';
 import '../../providers/auth_provider.dart';
 
 /// Redesigned Profile screen. Reads the current [AppUser] from
@@ -33,7 +34,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   Future<void> _pickImage() async {
     try {
-      final image = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      final image = await _imagePicker.pickImage(
+          source: ImageSource.gallery, imageQuality: 85);
       if (image == null || !mounted) return;
 
       final bytes = await image.readAsBytes();
@@ -50,7 +52,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             );
       } on AuthException catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(e.message)));
         }
       } finally {
         if (mounted) {
@@ -80,24 +83,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       await ref.read(authNotifierProvider.notifier).removePhoto();
     } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
 
+  /// The avatar: the uploading preview, the saved photo, or a gold circle
+  /// with the name's initial.
   Widget _buildProfileImage(String name, String? photoUrl) {
-    final fallback = Image.asset(
-      'assets/images/profile.jpg',
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
-      errorBuilder: (_, __, ___) => Center(
+    final palette = context.palette;
+    final fallback = ColoredBox(
+      color: palette.gold,
+      child: Center(
         child: Text(
           name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
+          style: AppFonts.serif(fontSize: 28, color: AppColors.ink),
         ),
       ),
     );
@@ -114,86 +115,129 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
     if (photoUrl != null && photoUrl.isNotEmpty) {
       // Cached to disk+memory (keyed by URL) so reopening this screen shows
-      // the photo instantly instead of re-downloading it from Firebase
-      // Storage every time — Image.network had no cache, so it refetched
-      // (and re-showed the spinner) on every visit.
+      // the photo instantly instead of re-downloading it every time.
       return CachedNetworkImage(
         imageUrl: photoUrl,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        // Decode at roughly the on-screen size instead of full resolution.
-        memCacheWidth: 400,
-        fadeInDuration: AppConstants.animMicro,
+        memCacheWidth: 200,
+        fadeInDuration: AppConstants.animPress,
         errorWidget: (_, __, ___) => fallback,
-        placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        placeholder: (_, __) => fallback,
       );
     }
 
     return fallback;
   }
 
-  Future<void> _editProfile(BuildContext context, WidgetRef ref, String name, String email) async {
-    final nameController = TextEditingController(text: name == 'Guest User' ? '' : name);
-    final emailController = TextEditingController(text: email == '—' ? '' : email);
+  /// Camera button: pick a photo, or (when there is one) choose between
+  /// changing and removing it.
+  Future<void> _onPhotoButton(bool hasPhoto) async {
+    if (!hasPhoto) return _pickImage();
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppConstants.pagePadding, 0,
+              AppConstants.pagePadding, AppConstants.spaceM),
+          child: ListRowCard(children: [
+            ListRow(
+              icon: Icons.photo_library_outlined,
+              title: 'Change photo',
+              onTap: () => Navigator.pop(ctx, 'change'),
+            ),
+            ListRow(
+              icon: Icons.delete_outline_rounded,
+              title: 'Remove photo',
+              destructive: true,
+              onTap: () => Navigator.pop(ctx, 'remove'),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (action == 'change') await _pickImage();
+    if (action == 'remove') await _removeImage();
+  }
+
+  Future<void> _editProfile(
+      BuildContext context, WidgetRef ref, String name, String email) async {
+    final nameController =
+        TextEditingController(text: name == 'Guest User' ? '' : name);
+    final emailController =
+        TextEditingController(text: email == '—' ? '' : email);
     final formKey = GlobalKey<FormState>();
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppConstants.radiusXL)),
-      ),
+      showDragHandle: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(AppConstants.spaceL),
+            padding: const EdgeInsets.fromLTRB(AppConstants.pagePadding, 0,
+                AppConstants.pagePadding, AppConstants.pagePadding),
             child: Form(
               key: formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Edit profile', style: Theme.of(ctx).textTheme.titleLarge),
-                  const SizedBox(height: AppConstants.spaceL),
-                  TextFormField(
+                  Text('Edit profile',
+                      style:
+                          AppFonts.serif(fontSize: 22, color: ctx.palette.ink)),
+                  const SizedBox(height: 18),
+                  AppTextField(
+                    label: 'Name',
                     controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Name'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
+                    icon: Icons.person_outline_rounded,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Enter your name'
+                        : null,
                   ),
-                  const SizedBox(height: AppConstants.spaceM),
-                  TextFormField(
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    label: 'Email',
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (v) =>
-                        (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                    icon: Icons.mail_outline_rounded,
+                    validator: (v) => (v == null || !v.contains('@'))
+                        ? 'Enter a valid email'
+                        : null,
                   ),
-                  const SizedBox(height: AppConstants.spaceL),
+                  const SizedBox(height: 22),
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: SecondaryButton(
+                          label: 'Cancel',
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Cancel'),
                         ),
                       ),
-                      const SizedBox(width: AppConstants.spaceSM),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: FilledButton(
+                        child: PrimaryButton(
+                          label: 'Save',
                           onPressed: () async {
-                            if (!(formKey.currentState?.validate() ?? false)) return;
+                            if (!(formKey.currentState?.validate() ?? false)) {
+                              return;
+                            }
                             try {
-                              final notice =
-                                  await ref.read(authNotifierProvider.notifier).updateProfile(
-                                        displayName: nameController.text.trim(),
-                                        email: emailController.text.trim(),
-                                      );
+                              final notice = await ref
+                                  .read(authNotifierProvider.notifier)
+                                  .updateProfile(
+                                    displayName: nameController.text.trim(),
+                                    email: emailController.text.trim(),
+                                  );
                               if (ctx.mounted) Navigator.pop(ctx);
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(notice ?? 'Profile updated')),
+                                  SnackBar(
+                                      content:
+                                          Text(notice ?? 'Profile updated')),
                                 );
                               }
                             } on AuthException catch (e) {
@@ -204,7 +248,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                               }
                             }
                           },
-                          child: const Text('Save'),
                         ),
                       ),
                     ],
@@ -226,208 +269,258 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.palette;
     final user = ref.watch(authNotifierProvider);
     final name = (user?.displayName.isNotEmpty ?? false)
         ? user!.displayName
         : 'Guest User';
     final email = user?.email ?? '—';
+    final hasPhoto = user?.photoUrl?.isNotEmpty ?? false;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          // Settings moved out of the bottom nav into Profile.
-          Padding(
-            padding: const EdgeInsets.only(right: AppConstants.spaceS),
-            child: CircleIconButton(
-              icon: Icons.settings_outlined,
-              tooltip: 'Settings',
-              onPressed: () => context.push('/settings'),
-            ),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding:
-            const EdgeInsets.all(AppConstants.spaceL).copyWith(bottom: AppConstants.listBottomInset),
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              vertical: AppConstants.spaceL,
-              horizontal: AppConstants.spaceM,
-            ),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer
-                  .withValues(alpha: theme.brightness == Brightness.dark ? 0.4 : 0.55),
-              borderRadius: BorderRadius.circular(AppConstants.radiusL),
-              border: Border.all(
-                color: theme.colorScheme.primary
-                    .withValues(alpha: theme.brightness == Brightness.dark ? 0.3 : 0.18),
-              ),
-            ),
-            child: Column(
-              children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 52,
-                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
-                    child: ClipOval(
-                      child: SizedBox(
-                        width: 104,
-                        height: 104,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            _buildProfileImage(name, user?.photoUrl),
-                            if (_uploadingPhoto)
-                              ColoredBox(
-                                color: Colors.black.withValues(alpha: 0.35),
-                                child: const Center(
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: IconButton(
-                      onPressed: _uploadingPhoto ? null : _pickImage,
-                      tooltip: (user?.photoUrl?.isNotEmpty ?? false) ? 'Change image' : 'Add image',
-                      padding: const EdgeInsets.all(6),
-                      constraints: const BoxConstraints(),
-                      style: IconButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        side: BorderSide(color: theme.scaffoldBackgroundColor, width: 2),
-                      ),
-                      icon: const Icon(Icons.camera_alt_rounded, size: 14),
-                    ),
-                  ),
-                ],
-              ),
-              if (user?.photoUrl?.isNotEmpty ?? false)
-                TextButton.icon(
-                  onPressed: _uploadingPhoto ? null : _removeImage,
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  label: const Text('Remove image'),
-                ),
-              const SizedBox(height: AppConstants.spaceM),
-              Text(name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text(email,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-              const SizedBox(height: AppConstants.spaceM),
-              TextButton.icon(
-                onPressed: () => _editProfile(context, ref, name, email),
-                icon: const Icon(Icons.edit_outlined, size: 16),
-                label: const Text('Edit profile'),
-                style: TextButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  shape: const StadiumBorder(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.spaceM,
-                    vertical: AppConstants.spaceS,
-                  ),
-                ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppConstants.spaceXL),
-          const Row(
+    Widget group(String label, List<Widget> rows) => Padding(
+          padding: const EdgeInsets.only(top: 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                  child: StatCard(
-                      label: 'Orders',
-                      value: '12',
-                      icon: Icons.shopping_bag_rounded)),
-              SizedBox(width: AppConstants.spaceSM),
-              Expanded(
-                  child: StatCard(
-                      label: 'Reviews', value: '4', icon: Icons.star_rounded)),
-              SizedBox(width: AppConstants.spaceSM),
-              Expanded(
-                  child: StatCard(
-                      label: 'Points',
-                      value: '860',
-                      icon: Icons.workspace_premium_rounded)),
+              SectionLabel(label),
+              const SizedBox(height: 10),
+              ListRowCard(children: rows),
             ],
           ),
-          const SizedBox(height: AppConstants.spaceXL),
-          const SectionHeader(title: 'Account information'),
-          const SizedBox(height: AppConstants.spaceM),
-          Card(
-            child: Column(
+        );
+
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(AppConstants.pagePadding, 12,
+              AppConstants.pagePadding, AppConstants.spaceL),
+          children: [
+            Row(
               children: [
-                SettingsTile(
-                  icon: Icons.email_outlined,
-                  title: 'Email',
-                  subtitle: email,
-                  trailing: const SizedBox.shrink(),
+                Semantics(
+                  header: true,
+                  child: Text('Profile',
+                      style: AppFonts.serif(fontSize: 26, color: palette.ink)),
                 ),
-                const Divider(height: 1),
-                SettingsTile(
-                  icon: Icons.badge_outlined,
-                  title: 'Account ID',
-                  subtitle: user?.uid ?? '—',
-                  trailing: const SizedBox.shrink(),
+                const Spacer(),
+                // Settings moved out of the bottom nav into Profile.
+                CircleIconButton(
+                  icon: Icons.settings_outlined,
+                  tooltip: 'Settings',
+                  onPressed: () => context.push('/settings'),
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            _ProfileHeaderCard(
+              name: name,
+              email: email,
+              avatar: _buildProfileImage(name, user?.photoUrl),
+              uploading: _uploadingPhoto,
+              hasPhoto: hasPhoto,
+              onPhoto: _uploadingPhoto ? null : () => _onPhotoButton(hasPhoto),
+              onEdit: () => _editProfile(context, ref, name, email),
+            ),
+            group('Account information', [
+              ListRow(
+                icon: Icons.mail_outline_rounded,
+                title: 'Email',
+                subtitle: email,
+                showChevron: false,
+              ),
+              ListRow(
+                icon: Icons.badge_outlined,
+                title: 'Account ID',
+                subtitle: user?.uid ?? '—',
+                showChevron: false,
+              ),
+            ]),
+            group('My activity', [
+              ListRow(
+                icon: Icons.receipt_long_outlined,
+                title: 'Order history',
+                onTap: () => _comingSoon(context, 'Order history'),
+              ),
+              ListRow(
+                icon: Icons.favorite_border_rounded,
+                title: 'Saved items',
+                onTap: () => _comingSoon(context, 'Saved items'),
+              ),
+              ListRow(
+                icon: Icons.star_outline_rounded,
+                title: 'My reviews',
+                onTap: () => _comingSoon(context, 'Reviews'),
+              ),
+            ]),
+            group('More', [
+              ListRow(
+                icon: Icons.settings_outlined,
+                title: 'Settings',
+                onTap: () => context.push('/settings'),
+              ),
+              ListRow(
+                icon: Icons.logout_rounded,
+                title: 'Log out',
+                destructive: true,
+                onTap: () => confirmLogout(context, ref),
+              ),
+            ]),
+          ].entranceAll(),
+        ),
+      ),
+    );
+  }
+}
+
+extension on List<Widget> {
+  /// Fades the page sections in one after another.
+  List<Widget> entranceAll() =>
+      [for (final (i, w) in indexed) w.entrance(index: i)];
+}
+
+/// Ink card: avatar with a small camera button, name, email, edit button,
+/// and a faint gold ring in the top-right corner.
+class _ProfileHeaderCard extends StatelessWidget {
+  const _ProfileHeaderCard({
+    required this.name,
+    required this.email,
+    required this.avatar,
+    required this.uploading,
+    required this.hasPhoto,
+    required this.onPhoto,
+    required this.onEdit,
+  });
+
+  final String name;
+  final String email;
+  final Widget avatar;
+  final bool uploading;
+  final bool hasPhoto;
+  final VoidCallback? onPhoto;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.heroCard,
+        borderRadius: BorderRadius.circular(AppConstants.radiusProductCard),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Positioned(
+            right: -110,
+            top: -40,
+            child: ExcludeSemantics(
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: palette.gold.withValues(alpha: 0.3), width: 1),
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: AppConstants.spaceXL),
-          const SectionHeader(title: 'My activity'),
-          const SizedBox(height: AppConstants.spaceM),
-          Card(
-            child: Column(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
+            child: Row(
               children: [
-                SettingsTile(
-                  icon: Icons.history_rounded,
-                  title: 'Order history',
-                  onTap: () => _comingSoon(context, 'Order history'),
+                SizedBox(
+                  width: 76,
+                  height: 76,
+                  child: Stack(
+                    children: [
+                      ClipOval(
+                        child: SizedBox(
+                          width: 68,
+                          height: 68,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              avatar,
+                              if (uploading)
+                                const ColoredBox(
+                                  color: Color(0x592B2420),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Tooltip(
+                          message: hasPhoto ? 'Change photo' : 'Add photo',
+                          child: Semantics(
+                            button: true,
+                            label: hasPhoto ? 'Change photo' : 'Add photo',
+                            excludeSemantics: true,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: onPhoto,
+                              child: Container(
+                                width: 26,
+                                height: 26,
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: palette.heroCard, width: 2),
+                                ),
+                                child: const Icon(Icons.photo_camera_outlined,
+                                    size: 13, color: AppColors.ink),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const Divider(height: 1),
-                SettingsTile(
-                  icon: Icons.favorite_border_rounded,
-                  title: 'Saved items',
-                  onTap: () => _comingSoon(context, 'Saved items'),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppFonts.sans(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: palette.onHeroCard)),
+                      const SizedBox(height: 3),
+                      Text(email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppFonts.sans(
+                              fontSize: 13, color: AppColors.profileEmail)),
+                    ],
+                  ),
                 ),
-                const Divider(height: 1),
-                SettingsTile(
-                  icon: Icons.rate_review_outlined,
-                  title: 'My reviews',
-                  onTap: () => _comingSoon(context, 'Reviews'),
+                CircleIconButton(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit profile',
+                  bordered: false,
+                  background: palette.onHeroCard.withValues(alpha: 0.12),
+                  iconColor: palette.onHeroCard,
+                  size: 36,
+                  onPressed: onEdit,
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: AppConstants.spaceXL),
-          const SectionHeader(title: 'More'),
-          const SizedBox(height: AppConstants.spaceM),
-          Card(
-            child: SettingsTile(
-              icon: Icons.settings_outlined,
-              title: 'Settings',
-              onTap: () => context.push('/settings'),
-            ),
-          ),
-          const SizedBox(height: AppConstants.spaceXL),
-          OutlinedButton.icon(
-            onPressed: () => confirmLogout(context, ref),
-            icon: Icon(Icons.logout_rounded, color: theme.colorScheme.error),
-            label: Text('Log out',
-                style: TextStyle(color: theme.colorScheme.error)),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(
-                  color: theme.colorScheme.error.withValues(alpha: 0.4)),
             ),
           ),
         ],
