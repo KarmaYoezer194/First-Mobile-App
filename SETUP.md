@@ -76,9 +76,14 @@ so the file compiles), `flutter run -d windows` will not be able to reach
 Firebase. Use:
 
 ```bash
-flutter run -d chrome     # easiest on this machine
+flutter run -d chrome --web-port 5000   # easiest on this machine
 # or an Android emulator / physical device
 ```
+
+Keep the fixed `--web-port 5000` (or use the "GoBuy (Chrome, port 5000)"
+run configuration in VS Code): Google sign-in only works from addresses
+registered in Google Cloud, and plain `flutter run -d chrome` picks a new
+random port every time.
 
 ## iOS
 
@@ -115,8 +120,15 @@ actually work — none of this can be done from here:
   For **web** (e.g. `flutter run -d chrome`), once Google sign-in is
   enabled the same provider page shows a "Web SDK configuration" client
   ID — paste that into the `google-signin-client_id` meta tag in
-  [web/index.html](web/index.html). Skipping this is why "Continue with
-  Google" fails immediately on web with a generic error today.
+  [web/index.html](web/index.html) (already done). Skipping this is why
+  "Continue with Google" fails immediately on web with a generic error.
+  Then register the web address the app runs at, or Google shows
+  **"Error 400: origin_mismatch"**: Google Cloud console → **APIs &
+  Services → Credentials** → the **Web client** OAuth client (the same ID
+  as in `web/index.html`) → **Authorized JavaScript origins** → add
+  `http://localhost:5000` and `http://localhost` → Save (it can take a few
+  minutes to apply), and always run on port 5000 (see "Testing the app").
+  https://console.cloud.google.com/apis/credentials?project=premium-auth-app-97063
 
 - **Apple** — Firebase console → **Authentication → Sign-in method →
   Apple → Enable**. Native iOS also needs the **Sign in with Apple**
