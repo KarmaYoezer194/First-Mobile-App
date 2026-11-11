@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/go_buy_logo.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/onboarding_provider.dart';
 
-/// Shown on cold start while auth state is resolved. Fades the logo/name
-/// in, then routes to Home or Login based on [authNotifierProvider].
+/// Shown on cold start while auth state is resolved, then routes to
+/// Onboarding, Home or Login.
+///
+/// The art is drawn at its 390×844 design size and scaled to fit, with the
+/// logo, tagline and dots placed in the same coordinates, so everything
+/// stays lined up on any screen. The splash is a fixed brand screen: it
+/// looks the same in light and dark mode.
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
 
@@ -17,6 +26,8 @@ class SplashPage extends ConsumerStatefulWidget {
 
 class _SplashPageState extends ConsumerState<SplashPage>
     with SingleTickerProviderStateMixin {
+  static const _designSize = Size(390, 844);
+
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: AppConstants.animSlow,
@@ -27,7 +38,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
   late final Animation<Offset> _slide = Tween(
     begin: const Offset(0, 0.08),
     end: Offset.zero,
-  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+  ).animate(
+      CurvedAnimation(parent: _controller, curve: AppConstants.animCurve));
 
   @override
   void initState() {
@@ -35,7 +47,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
     // No real backend to "wait" on right now, so just hold the splash
     // for a moment (long enough to see the animation) then route based
     // on onboarding + auth state.
-    Future.delayed(AppConstants.animSlow + const Duration(milliseconds: 400), () async {
+    Future.delayed(AppConstants.animSlow + const Duration(milliseconds: 400),
+        () async {
       if (!mounted) return;
       final seenOnboarding = await ref.read(onboardingCompleteProvider.future);
       if (!mounted) return;
@@ -63,73 +76,59 @@ class _SplashPageState extends ConsumerState<SplashPage>
       context.go(next != null ? '/home' : '/login');
     });
 
-    final theme = Theme.of(context);
-
     return Scaffold(
-      body: Container(
-        // A fixed ink-to-coral gradient rather than `colorScheme.primary`:
-        // in dark mode that role becomes a *lighter* coral (for contrast
-        // against dark surfaces elsewhere), which would wash out this
-        // screen's hardcoded white logo/text. The splash is a brand
-        // moment, not theme-reactive UI, so it stays constant either way.
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.lightTextPrimary, AppColors.primary],
-          ),
-        ),
-        child: Center(
-          child: FadeTransition(
-            opacity: _fade,
-            child: SlideTransition(
-              position: _slide,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      backgroundColor: AppColors.background,
+      body: Semantics(
+        label: '${AppConstants.appName}. ${AppConstants.appTagline}',
+        excludeSemantics: true,
+        child: SizedBox.expand(
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: SizedBox.fromSize(
+              size: _designSize,
+              child: Stack(
                 children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
+                  Positioned.fill(
+                    child: SvgPicture.asset(
+                      'assets/onboarding/splash_art.svg',
+                      fit: BoxFit.fill,
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 536,
+                    child: FadeTransition(
+                      opacity: _fade,
+                      child: SlideTransition(
+                        position: _slide,
+                        child: Column(
+                          children: [
+                            const GoBuyLogo(size: 48, color: AppColors.ink),
+                            const SizedBox(height: 14),
+                            Text(
+                              AppConstants.appTagline,
+                              style: AppFonts.sans(
+                                  fontSize: 14, color: AppColors.inkMuted),
+                            ),
+                          ],
                         ),
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 781,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _Dot(AppColors.ink),
+                        SizedBox(width: 9),
+                        _Dot(AppColors.gold),
+                        SizedBox(width: 9),
+                        _Dot(AppColors.illoSand),
                       ],
-                    ),
-                    // Fixed coral rather than `colorScheme.primary`,
-                    // which lightens in dark mode and would wash out
-                    // against this box's fixed white background.
-                    child: const Icon(Icons.bolt_rounded,
-                        size: 52, color: AppColors.primary),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    AppConstants.appName,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppConstants.appTagline,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.85),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  const SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.6,
-                      valueColor: AlwaysStoppedAnimation(Colors.white),
                     ),
                   ),
                 ],
@@ -140,4 +139,17 @@ class _SplashPageState extends ConsumerState<SplashPage>
       ),
     );
   }
+}
+
+class _Dot extends StatelessWidget {
+  const _Dot(this.color);
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      );
 }

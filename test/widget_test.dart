@@ -58,7 +58,8 @@ void main() {
     // waiting for that timer/animation to finish.
     await tester.pump();
 
-    expect(find.text('GoBuy'), findsOneWidget);
+    // The logo is "GoBuy" plus a gold full stop, drawn as one rich text.
+    expect(find.textContaining('GoBuy', findRichText: true), findsOneWidget);
 
     // Let the splash screen's delayed navigation actually fire before the
     // test ends — flutter_test fails any test that leaves a Timer pending,
