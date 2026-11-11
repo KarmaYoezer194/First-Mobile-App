@@ -1,11 +1,13 @@
+import 'package:flutter/animation.dart';
+
 class AppConstants {
   AppConstants._();
 
   static const String appName = 'GoBuy';
-  static const String appTagline = 'Your premium experience starts here';
+  static const String appTagline = 'Good finds. Better prices.';
   static const String appVersion = '1.0.0'; // keep in sync with pubspec.yaml
 
-  // Spacing scale
+  // ---- Spacing ------------------------------------------------------------
   static const double spaceXS = 4;
   static const double spaceS = 8;
   static const double spaceSM = 12;
@@ -13,41 +15,68 @@ class AppConstants {
   static const double spaceL = 24;
   static const double spaceXL = 32;
   static const double spaceXXL = 48;
+
+  /// Horizontal page padding on every screen.
+  static const double pagePadding = 20;
+
+  /// Horizontal padding on auth screens and onboarding text panels.
+  static const double panelPadding = 24;
+
   /// Bottom padding on scrollable tab content so the last item clears the
-  /// bottom nav bar/FAB instead of sitting behind it. Was already the same
-  /// literal `100` copy-pasted onto Home, Profile, and Settings — named so
-  /// it stays that way instead of drifting per screen.
+  /// bottom nav bar.
   static const double listBottomInset = 100;
 
-  // Radii. `radiusM` is 16, not the more "logical" midpoint between S and
-  // L, because that's the actual value already used everywhere in
-  // `AppTheme` (inputs, buttons, cards) — the token was made to match the
-  // established real corner radius rather than the other way around.
-  static const double radiusS = 8;
-  static const double radiusM = 16;
-  static const double radiusL = 20;
-  static const double radiusXL = 28;
+  // ---- Sizes --------------------------------------------------------------
+  static const double fieldHeight = 50;
+  static const double iconButtonSize = 40;
+  static const double minTapTarget = 44;
+  static const double categoryCircleSize = 58;
 
-  // Animation durations. `animMicro` covers press/fade feedback that's
-  // deliberately quicker than a full screen-level transition — without it,
-  // that whole tier of interaction (image fade-ins, tap scale-downs) has no
-  // token to use and ends up as inline literals.
-  static const Duration animMicro = Duration(milliseconds: 150);
-  static const Duration animFast = Duration(milliseconds: 200);
-  static const Duration animMedium = Duration(milliseconds: 400);
-  static const Duration animSlow = Duration(milliseconds: 800);
-  /// One cycle of a looping shimmer/skeleton loader — a distinct concept
-  /// from the one-shot transitions above.
+  // ---- Radii --------------------------------------------------------------
+  static const double radiusS = 8;
+  static const double radiusIconWell = 10;
+  static const double radiusInput = 14;
+  static const double radiusM = 16; // list cards, product image tile
+  static const double radiusL = 20; // hero / dark cards
+  static const double radiusProductCard = 22;
+  static const double radiusSheet = 24;
+  static const double radiusXL = 28; // onboarding panel, large sheets
+  static const double radiusPill = 100;
+
+  // ---- Motion (use these values everywhere) -------------------------------
+  /// Button press feedback (scale to [pressScale]).
+  static const Duration animPress = Duration(milliseconds: 120);
+  static const double pressScale = 0.97;
+
+  /// Toggle / selection changes.
+  static const Duration animToggle = Duration(milliseconds: 180);
+
+  /// Page transitions (fade-through; pushed routes slide from the right).
+  static const Duration animPage = Duration(milliseconds: 220);
+
+  /// Screen content entrance: fade 0→1 + slideY 0.04→0.
+  static const Duration animEntrance = Duration(milliseconds: 250);
+  static const double entranceSlideY = 0.04;
+  static const Curve animCurve = Curves.easeOutCubic;
+
+  /// Grid/list stagger per item, and how many items get animated.
+  static const Duration staggerStep = Duration(milliseconds: 40);
+  static const int staggerMaxItems = 8;
+
+  // Legacy durations, now mapped onto the motion tokens above.
+  static const Duration animMicro = animPress;
+  static const Duration animFast = animToggle;
+  static const Duration animMedium = animEntrance;
+  static const Duration animSlow = Duration(milliseconds: 800); // splash only
+
+  /// One cycle of a looping skeleton loader.
   static const Duration animShimmer = Duration(milliseconds: 1100);
 
-  // Debounce delays — distinct from the `anim*` family above: these gate a
-  // network call after typing stops, not a visual transition. Two tiers
-  // because a heavier API (place autocomplete) genuinely wants to wait
-  // longer than a lighter one (in-app product search).
+  // ---- Debounce (network calls after typing stops) ------------------------
   static const Duration debounceFast = Duration(milliseconds: 450);
   static const Duration debounceSlow = Duration(milliseconds: 600);
 
-  // Storage keys
+  // ---- Storage keys -------------------------------------------------------
   static const String prefThemeMode = 'pref_theme_mode';
   static const String prefLocale = 'pref_locale';
   static const String prefOnboardingSeen = 'pref_onboarding_seen';

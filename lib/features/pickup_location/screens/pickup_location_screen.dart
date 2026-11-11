@@ -249,7 +249,7 @@ class _PickupLocationScreenState extends ConsumerState<PickupLocationScreen> {
                   MarkerLayer(
                     markers: _buildMarkers(nearbyPlacesAsync.valueOrNull ?? const [], selectedCategory),
                   ),
-                  RichAttributionWidget(
+                  const RichAttributionWidget(
                     attributions: [
                       TextSourceAttribution('© OpenStreetMap contributors'),
                     ],
