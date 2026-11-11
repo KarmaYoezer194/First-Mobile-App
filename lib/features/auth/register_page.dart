@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:responsive_framework/responsive_framework.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/widgets/auth_error_banner.dart';
-import '../../core/widgets/auth_header.dart';
-import '../../core/widgets/custom_text_field.dart';
+import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/social_auth_buttons.dart';
 import '../../providers/auth_provider.dart';
+import 'widgets/auth_layout.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -94,91 +93,94 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = ResponsiveBreakpoints.of(context).isMobile;
-
-    return Scaffold(
-      appBar: AppBar(),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: isMobile ? 480 : 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppConstants.spaceM),
-                    const AuthHeader(
-                      icon: Icons.person_add_alt_1_rounded,
-                      title: 'Create your account',
-                      subtitle: 'Join ${AppConstants.appName} in a few seconds',
-                    ),
-                    const SizedBox(height: AppConstants.spaceXL),
-                    if (_error != null) ...[
-                      AuthErrorBanner(message: _error!),
-                      const SizedBox(height: AppConstants.spaceM),
-                    ],
-                    CustomTextField(
-                      label: 'Full name',
-                      controller: _nameController,
-                      prefixIcon: Icons.person_outline_rounded,
-                      textInputAction: TextInputAction.next,
-                      validator: (v) => (v == null || v.trim().length < 2) ? 'Enter your name' : null,
-                    ),
-                    const SizedBox(height: AppConstants.spaceM),
-                    CustomTextField(
-                      label: 'Email',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      prefixIcon: Icons.email_outlined,
-                      textInputAction: TextInputAction.next,
-                      validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
-                    ),
-                    const SizedBox(height: AppConstants.spaceM),
-                    CustomTextField(
-                      label: 'Password',
-                      controller: _passwordController,
-                      obscureText: true,
-                      prefixIcon: Icons.lock_outline_rounded,
-                      textInputAction: TextInputAction.next,
-                      validator: (v) => (v == null || v.length < 6) ? 'At least 6 characters' : null,
-                    ),
-                    const SizedBox(height: AppConstants.spaceM),
-                    CustomTextField(
-                      label: 'Confirm password',
-                      controller: _confirmController,
-                      obscureText: true,
-                      prefixIcon: Icons.lock_outline_rounded,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(),
-                      validator: (v) => v != _passwordController.text ? 'Passwords do not match' : null,
-                    ),
-                    const SizedBox(height: AppConstants.spaceL),
-                    PrimaryButton(label: 'Create Account', loading: _loading, onPressed: _submit),
-                    const SizedBox(height: AppConstants.spaceL),
-                    SocialAuthButtons(
-                      dividerLabel: 'or sign up with',
-                      loadingProvider: _socialLoading,
-                      onPressed: _continueWith,
-                    ),
-                    const SizedBox(height: AppConstants.spaceL),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Already have an account?'),
-                        TextButton(onPressed: () => context.pop(), child: const Text('Sign in')),
-                      ],
-                    ),
-                    const SizedBox(height: AppConstants.spaceL),
-                  ],
+    return AuthLayout(
+      topBar: const AuthBackButton(),
+      title: 'Create account',
+      subtitle: 'Join ${AppConstants.appName} and start saving today',
+      footer: AuthFooterLink(
+        question: 'Already have an account?',
+        action: 'Sign in',
+        // Register can be opened from onboarding with nothing behind it.
+        onTap: () => goBackOr(context, '/login'),
+      ),
+      pinFooter: false,
+      children: [
+        Form(
+          key: _formKey,
+          child: AutofillGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_error != null) ...[
+                  AuthErrorBanner(message: _error!),
+                  const SizedBox(height: 16),
+                ],
+                AppTextField(
+                  label: 'Full name',
+                  hint: 'Your name',
+                  controller: _nameController,
+                  icon: Icons.person_outline_rounded,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.name],
+                  validator: (v) => (v == null || v.trim().length < 2)
+                      ? 'Enter your name'
+                      : null,
                 ),
-              ),
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Email',
+                  hint: 'you@example.com',
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  icon: Icons.mail_outline_rounded,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  validator: (v) => (v == null || !v.contains('@'))
+                      ? 'Enter a valid email'
+                      : null,
+                ),
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Password',
+                  hint: 'At least 6 characters',
+                  controller: _passwordController,
+                  obscureText: true,
+                  icon: Icons.lock_outline_rounded,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.newPassword],
+                  validator: (v) => (v == null || v.length < 6)
+                      ? 'At least 6 characters'
+                      : null,
+                ),
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Confirm password',
+                  hint: 'Re-enter password',
+                  controller: _confirmController,
+                  obscureText: true,
+                  icon: Icons.lock_outline_rounded,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.newPassword],
+                  onSubmitted: (_) => _submit(),
+                  validator: (v) => v != _passwordController.text
+                      ? 'Passwords do not match'
+                      : null,
+                ),
+                const SizedBox(height: 22),
+                PrimaryButton(
+                    label: 'Create Account',
+                    loading: _loading,
+                    onPressed: _submit),
+                const SizedBox(height: 26),
+                SocialAuthButtons(
+                  loadingProvider: _socialLoading,
+                  onPressed: _continueWith,
+                ),
+              ],
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

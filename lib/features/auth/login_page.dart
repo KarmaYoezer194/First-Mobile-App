@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:responsive_framework/responsive_framework.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/widgets/auth_error_banner.dart';
-import '../../core/widgets/auth_header.dart';
-import '../../core/widgets/custom_text_field.dart';
+import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/go_buy_logo.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/social_auth_buttons.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import 'widgets/auth_layout.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -92,86 +94,92 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = ResponsiveBreakpoints.of(context).isMobile;
+    final palette = context.palette;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppConstants.spaceL),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: isMobile ? 480 : 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppConstants.spaceXL),
-                    const AuthHeader(
-                      icon: Icons.lock_rounded,
-                      title: 'Welcome back',
-                      subtitle: 'Sign in to continue to ${AppConstants.appName}',
-                    ),
-                    const SizedBox(height: AppConstants.spaceXL),
-                    if (_error != null) ...[
-                      AuthErrorBanner(message: _error!),
-                      const SizedBox(height: AppConstants.spaceM),
-                    ],
-                    CustomTextField(
-                      label: 'Email',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      prefixIcon: Icons.email_outlined,
-                      textInputAction: TextInputAction.next,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Email is required';
-                        if (!value.contains('@') || !value.contains('.')) return 'Enter a valid email';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppConstants.spaceM),
-                    CustomTextField(
-                      label: 'Password',
-                      controller: _passwordController,
-                      obscureText: true,
-                      prefixIcon: Icons.lock_outline_rounded,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Password is required';
-                        if (value.length < 6) return 'At least 6 characters';
-                        return null;
-                      },
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => context.push('/forgot-password'),
-                        child: const Text('Forgot password?'),
-                      ),
-                    ),
-                    const SizedBox(height: AppConstants.spaceS),
-                    PrimaryButton(label: 'Sign In', loading: _loading, onPressed: _submit),
-                    const SizedBox(height: AppConstants.spaceL),
-                    SocialAuthButtons(
-                      loadingProvider: _socialLoading,
-                      onPressed: _continueWith,
-                    ),
-                    const SizedBox(height: AppConstants.spaceL),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text("Don't have an account?"),
-                        TextButton(onPressed: () => context.push('/register'), child: const Text('Sign up')),
-                      ],
-                    ),
-                  ],
+    return AuthLayout(
+      topBar: const GoBuyLogo(size: 24),
+      title: 'Welcome back',
+      subtitle: 'Sign in to continue to ${AppConstants.appName}',
+      footer: AuthFooterLink(
+        question: "Don't have an account?",
+        action: 'Sign up',
+        onTap: () => context.push('/register'),
+      ),
+      children: [
+        Form(
+          key: _formKey,
+          child: AutofillGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_error != null) ...[
+                  AuthErrorBanner(message: _error!),
+                  const SizedBox(height: 16),
+                ],
+                AppTextField(
+                  label: 'Email',
+                  hint: 'you@example.com',
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  icon: Icons.mail_outline_rounded,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Email is required';
+                    }
+                    if (!value.contains('@') || !value.contains('.')) {
+                      return 'Enter a valid email';
+                    }
+                    return null;
+                  },
                 ),
-              ),
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Password',
+                  hint: 'Enter your password',
+                  controller: _passwordController,
+                  obscureText: true,
+                  icon: Icons.lock_outline_rounded,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.password],
+                  onSubmitted: (_) => _submit(),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Password is required';
+                    }
+                    if (value.length < 6) return 'At least 6 characters';
+                    return null;
+                  },
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.push('/forgot-password'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: palette.gold,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: const Size(
+                          AppConstants.minTapTarget, AppConstants.minTapTarget),
+                      textStyle: AppFonts.sans(
+                          fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    child: const Text('Forgot password?'),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                PrimaryButton(
+                    label: 'Sign In', loading: _loading, onPressed: _submit),
+                const SizedBox(height: 26),
+                SocialAuthButtons(
+                  loadingProvider: _socialLoading,
+                  onPressed: _continueWith,
+                ),
+              ],
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

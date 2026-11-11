@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_constants.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 
-/// Inline error banner shown under an auth form's header. Shared across
-/// Login/Register/Forgot-password so all three fail the same way visually.
+/// Inline error banner for sign-in / sign-up / reset failures that aren't
+/// tied to one field (wrong password, network error, ...). Field
+/// validation errors show under their own field instead.
 class AuthErrorBanner extends StatelessWidget {
   const AuthErrorBanner({super.key, required this.message});
 
@@ -11,25 +14,30 @@ class AuthErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppConstants.spaceSM),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppConstants.radiusM),
-        border:
-            Border.all(color: theme.colorScheme.error.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline_rounded,
-              color: theme.colorScheme.error, size: 20),
-          const SizedBox(width: AppConstants.spaceS),
-          Expanded(
-              child: Text(message,
-                  style: TextStyle(color: theme.colorScheme.error))),
-        ],
+    final palette = context.palette;
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: palette.dangerBg,
+          borderRadius: BorderRadius.circular(AppConstants.radiusInput),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline_rounded, color: palette.danger, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: AppFonts.sans(
+                    fontSize: 12.5, color: palette.danger, height: 1.4),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
