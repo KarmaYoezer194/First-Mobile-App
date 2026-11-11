@@ -3,102 +3,232 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
-import '../../../core/widgets/common_widgets.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../providers/cart_provider.dart';
+import '../../../providers/nav_provider.dart';
+import '../../products/widgets/product_tile.dart' show shortCategoryLabel;
 import '../models/cart_item.dart';
+import '../models/pricing_summary.dart';
 import 'checkout_screen.dart';
 
-/// Full shopping-cart page: line items with a quantity stepper and swipe-to-
-/// remove, plus a live subtotal. "Proceed to Checkout" hands off to
-/// [CheckoutScreen] for the full price breakdown, payment method, and the
-/// actual order-placing API call.
+/// Cart (a bottom-nav tab, and also the pushed `/cart` page): select-all,
+/// line items with checkbox, quantity stepper, remove and swipe-to-remove,
+/// a free-shipping banner, the price summary for the checked items, and a
+/// sticky Checkout button.
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
+
+  /// From the tab there's nothing to go back to, so jump to Home instead.
+  void _startShopping(BuildContext context, WidgetRef ref) {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      ref.read(bottomNavIndexProvider.notifier).state = 0;
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(cartProvider);
-    final theme = Theme.of(context);
+    final palette = context.palette;
+    final pricing = cart.selectedPricing;
+    final canPop = Navigator.of(context).canPop();
+    final itemCount = cart.totalQuantity;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Cart')),
-      body: cart.isEmpty
-          ? const PlaceholderState(
-              icon: Icons.shopping_cart_outlined,
-              title: 'Your cart is empty',
-              message: 'Browse products and tap the cart icon to add something.',
-            )
-          : Column(
-              children: [
-                _SelectAllBar(
-                  allSelected: cart.allSelected,
-                  selectedCount: cart.selectedItems.length,
-                  totalCount: cart.items.length,
-                  onChanged: (v) => ref.read(cartProvider.notifier).selectAll(v),
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppConstants.pagePadding, 12, AppConstants.pagePadding, 0),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (canPop) ...[
+                      Transform.translate(
+                        offset: const Offset(-6, 0),
+                        child: CircleIconButton(
+                          icon: Icons.chevron_left_rounded,
+                          tooltip: 'Back',
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Semantics(
+                      header: true,
+                      child: Text('My Cart',
+                          style:
+                              AppFonts.serif(fontSize: 26, color: palette.ink)),
+                    ),
+                    const Spacer(),
+                    if (!cart.isEmpty)
+                      Text(
+                        '$itemCount ${itemCount == 1 ? 'item' : 'items'}',
+                        style: AppFonts.sans(fontSize: 12, color: palette.hint),
+                      ),
+                  ],
                 ),
-                const Divider(height: 1),
-                Expanded(child: _GroupedCartList(cart: cart)),
-              ],
+              ),
             ),
+            if (cart.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: PlaceholderState(
+                  icon: Icons.shopping_bag_outlined,
+                  title: 'Your cart is empty',
+                  message:
+                      'Browse products and tap Add to Cart to put something here.',
+                  action: PrimaryButton(
+                    label: 'Start shopping',
+                    expand: false,
+                    onPressed: () => _startShopping(context, ref),
+                  ),
+                ).entrance(),
+              )
+            else ...[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppConstants.pagePadding, 14, AppConstants.pagePadding, 0),
+                sliver: SliverList.list(children: [
+                  _FreeShippingBanner(pricing: pricing),
+                  const SizedBox(height: 6),
+                  _SelectAllBar(
+                    allSelected: cart.allSelected,
+                    selectedCount: cart.selectedItems.length,
+                    totalCount: cart.items.length,
+                    onChanged: (v) =>
+                        ref.read(cartProvider.notifier).selectAll(v),
+                  ),
+                  const SizedBox(height: 4),
+                ]),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppConstants.pagePadding),
+                sliver: _GroupedCartList(cart: cart),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppConstants.pagePadding, 6, AppConstants.pagePadding, 24),
+                sliver: SliverToBoxAdapter(
+                  child: cart.selectedItems.isEmpty
+                      ? Text(
+                          'Tick the items you want to check out.',
+                          textAlign: TextAlign.center,
+                          style:
+                              AppFonts.sans(fontSize: 12, color: palette.hint),
+                        )
+                      : SummaryCard(
+                          lines: _summaryLines(pricing, palette),
+                          totalValue: _money(pricing.total),
+                        ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
       bottomNavigationBar: cart.isEmpty
           ? null
           : SafeArea(
+              top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  AppConstants.spaceM,
-                  AppConstants.spaceSM,
-                  AppConstants.spaceM,
-                  AppConstants.spaceM,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          cart.selectedItems.isEmpty
-                              ? 'Select items to check out'
-                              : 'Total (${cart.selectedItems.fold<int>(0, (s, i) => s + i.quantity)} items)',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        Text(
-                          '\$${cart.selectedPricing.total.toStringAsFixed(2)}',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.primary,
+                    AppConstants.pagePadding, 8, AppConstants.pagePadding, 12),
+                child: PrimaryButton(
+                  label: cart.selectedItems.isEmpty
+                      ? 'Select items to check out'
+                      : 'Checkout · ${_money(pricing.total)}',
+                  onPressed: cart.selectedItems.isEmpty
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const CheckoutScreen()),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppConstants.spaceSM),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: FilledButton(
-                        onPressed: cart.selectedItems.isEmpty
-                            ? null
-                            : () => Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const CheckoutScreen()),
-                                ),
-                        child: Text(
-                          cart.selectedItems.isEmpty
-                              ? 'Proceed to Checkout'
-                              : 'Proceed to Checkout (${cart.selectedItems.length})',
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
     );
   }
+
+  static List<SummaryLine> _summaryLines(
+      PricingSummary pricing, AppPalette palette) {
+    return [
+      SummaryLine('Subtotal', _money(pricing.subtotal)),
+      if (pricing.discount > 0)
+        SummaryLine('Discount', '-${_money(pricing.discount)}',
+            valueColor: palette.success),
+      SummaryLine(
+        'Shipping',
+        pricing.shipping == 0 ? 'Free' : _money(pricing.shipping),
+        valueColor: pricing.shipping == 0 ? palette.success : null,
+      ),
+      SummaryLine(
+        'Tax (${(PricingSummary.taxRate * 100).toStringAsFixed(0)}%)',
+        _money(pricing.tax),
+      ),
+    ];
+  }
 }
 
-/// Header row above the cart list: a "Select All" checkbox plus how many
-/// of the cart's lines are currently checked — the same control Lazada's
-/// cart shows above its item list.
+String _money(double value) => '\$${value.toStringAsFixed(2)}';
+
+/// Ink banner: free shipping unlocked, or how much more is needed.
+class _FreeShippingBanner extends StatelessWidget {
+  const _FreeShippingBanner({required this.pricing});
+
+  final PricingSummary pricing;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final remaining = pricing.remainingForFreeShipping;
+    final threshold =
+        '\$${PricingSummary.freeShippingThreshold.toStringAsFixed(0)}';
+    final base =
+        AppFonts.sans(fontSize: 12.5, color: palette.onHeroCard, height: 1.35);
+    final bold = AppFonts.sans(
+        fontSize: 12.5, fontWeight: FontWeight.w700, color: palette.goldLight);
+
+    final TextSpan message = remaining <= 0 && pricing.subtotal > 0
+        ? TextSpan(style: base, children: [
+            const TextSpan(text: "You've unlocked "),
+            TextSpan(text: 'free shipping', style: bold),
+            TextSpan(text: ' on orders over $threshold'),
+          ])
+        : TextSpan(style: base, children: [
+            const TextSpan(text: 'Add '),
+            TextSpan(text: _money(remaining), style: bold),
+            const TextSpan(text: ' more for '),
+            TextSpan(text: 'free shipping', style: bold),
+          ]);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: palette.heroCard,
+        borderRadius: BorderRadius.circular(AppConstants.radiusInput),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.local_shipping_outlined,
+              size: 18, color: palette.goldLight),
+          const SizedBox(width: 10),
+          Expanded(child: Text.rich(message)),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Select all" checkbox plus how many lines are checked.
 class _SelectAllBar extends StatelessWidget {
   const _SelectAllBar({
     required this.allSelected,
@@ -114,35 +244,31 @@ class _SelectAllBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.palette;
     return InkWell(
       onTap: () => onChanged(!allSelected),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppConstants.spaceSM,
-          vertical: AppConstants.spaceXS,
-        ),
-        child: Row(
-          children: [
-            Checkbox(value: allSelected, onChanged: (v) => onChanged(v ?? false)),
-            const SizedBox(width: 4),
-            Text('Select All', style: theme.textTheme.bodyMedium),
-            const Spacer(),
-            Text(
-              '$selectedCount of $totalCount selected',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+      borderRadius: BorderRadius.circular(AppConstants.radiusS),
+      child: Row(
+        children: [
+          Checkbox(value: allSelected, onChanged: (v) => onChanged(v ?? false)),
+          Text('Select all',
+              style: AppFonts.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: palette.ink)),
+          const Spacer(),
+          Text('$selectedCount of $totalCount selected',
+              style: AppFonts.sans(fontSize: 12, color: palette.hint)),
+        ],
       ),
     );
   }
 }
 
-/// Cart items grouped into per-"shop" sections (Lazada groups by seller;
-/// this catalog has no seller of its own, so [Product.brand] stands in),
-/// each with its own header + select-all checkbox above its item rows.
+/// Cart items grouped per "shop" (the product's brand stands in for a
+/// seller). Group headers, each with its own select checkbox, only show
+/// when there's more than one group — with one group they'd just repeat
+/// "Select all".
 class _GroupedCartList extends ConsumerWidget {
   const _GroupedCartList({required this.cart});
 
@@ -154,41 +280,39 @@ class _GroupedCartList extends ConsumerWidget {
     for (final item in cart.items) {
       grouped.putIfAbsent(item.product.brand, () => []).add(item);
     }
+    final showHeaders = grouped.length > 1;
+    final notifier = ref.read(cartProvider.notifier);
 
-    return ListView(
-      padding: const EdgeInsets.all(AppConstants.spaceM),
+    return SliverList.list(
       children: [
         for (final entry in grouped.entries) ...[
-          _ShopHeader(
-            brand: entry.key,
-            allSelected: entry.value.every((i) => cart.isSelected(i.product.id)),
-            onChanged: (v) => ref
-                .read(cartProvider.notifier)
-                .selectGroup(entry.value.map((i) => i.product.id), v),
-          ),
-          const SizedBox(height: AppConstants.spaceS),
-          for (final item in entry.value) ...[
-            _CartItemTile(
-              item: item,
-              selected: cart.isSelected(item.product.id),
-              onSelectedChanged: (_) =>
-                  ref.read(cartProvider.notifier).toggleSelected(item.product.id),
-              onQuantityChanged: (q) =>
-                  ref.read(cartProvider.notifier).updateQuantity(item.product.id, q),
-              onRemove: () => ref.read(cartProvider.notifier).removeProduct(item.product.id),
+          if (showHeaders)
+            _ShopHeader(
+              brand: entry.key,
+              allSelected:
+                  entry.value.every((i) => cart.isSelected(i.product.id)),
+              onChanged: (v) =>
+                  notifier.selectGroup(entry.value.map((i) => i.product.id), v),
             ),
-            const SizedBox(height: AppConstants.spaceSM),
-          ],
-          const SizedBox(height: AppConstants.spaceS),
+          for (final item in entry.value)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _CartItemCard(
+                item: item,
+                selected: cart.isSelected(item.product.id),
+                onSelectedChanged: (_) =>
+                    notifier.toggleSelected(item.product.id),
+                onQuantityChanged: (q) =>
+                    notifier.updateQuantity(item.product.id, q),
+                onRemove: () => notifier.removeProduct(item.product.id),
+              ),
+            ),
         ],
       ],
     );
   }
 }
 
-/// One "shop" section's header: a store icon, the brand name standing in
-/// for a seller, and a checkbox that selects/deselects every item in that
-/// group at once.
 class _ShopHeader extends StatelessWidget {
   const _ShopHeader({
     required this.brand,
@@ -202,27 +326,27 @@ class _ShopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.palette;
     return InkWell(
       onTap: () => onChanged(!allSelected),
-      borderRadius: BorderRadius.circular(AppConstants.radiusS),
       child: Row(
         children: [
           Checkbox(value: allSelected, onChanged: (v) => onChanged(v ?? false)),
-          Icon(Icons.storefront_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          Icon(Icons.storefront_outlined, size: 16, color: palette.inkMuted),
           const SizedBox(width: 6),
-          Text(
-            brand,
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
+          Text(brand,
+              style: AppFonts.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: palette.ink)),
         ],
       ),
     );
   }
 }
 
-class _CartItemTile extends StatelessWidget {
-  const _CartItemTile({
+class _CartItemCard extends StatelessWidget {
+  const _CartItemCard({
     required this.item,
     required this.selected,
     required this.onSelectedChanged,
@@ -238,140 +362,136 @@ class _CartItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.palette;
+    final product = item.product;
+    final radius = BorderRadius.circular(AppConstants.radiusM);
 
     return Dismissible(
-      key: ValueKey(item.product.id),
+      key: ValueKey(product.id),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => onRemove(),
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
+        decoration:
+            BoxDecoration(color: palette.dangerBg, borderRadius: radius),
+        child: Icon(Icons.delete_outline_rounded, color: palette.danger),
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(2, 10, 10, 10),
         decoration: BoxDecoration(
-          color: theme.colorScheme.error,
-          // Matches the Card's own radius (AppTheme's cardTheme, also
-          // AppConstants.radiusM) so the swipe reveal doesn't show a
-          // mismatched corner underneath it.
-          borderRadius: BorderRadius.circular(AppConstants.radiusM),
+          color: palette.surface,
+          borderRadius: radius,
+          border: Border.all(color: palette.border),
         ),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
-      ),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.all(AppConstants.spaceS),
-          child: Row(
-            children: [
-              Checkbox(value: selected, onChanged: onSelectedChanged),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                child: SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: item.product.thumbnail.isEmpty
-                      ? Container(color: theme.colorScheme.surfaceContainerHighest)
-                      // Cached: this is almost always the same image already
-                      // loaded on the product grid/detail screen moments ago.
+        child: Row(
+          children: [
+            Checkbox(value: selected, onChanged: onSelectedChanged),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppConstants.radiusInput),
+              child: SizedBox(
+                width: 84,
+                height: 84,
+                child: ColoredBox(
+                  color: palette.tile,
+                  child: product.thumbnail.isEmpty
+                      ? Icon(Icons.image_outlined, color: palette.hint)
+                      // Cached: almost always the same image already loaded
+                      // on the product grid/detail screen moments ago.
                       : CachedNetworkImage(
-                          imageUrl: item.product.thumbnail,
+                          imageUrl: product.thumbnail,
                           fit: BoxFit.cover,
-                          memCacheWidth: 128,
-                          fadeInDuration: AppConstants.animMicro,
+                          memCacheWidth: 168,
+                          fadeInDuration: AppConstants.animPress,
                           errorWidget: (_, __, ___) =>
-                              Container(color: theme.colorScheme.surfaceContainerHighest),
+                              Icon(Icons.image_outlined, color: palette.hint),
                         ),
                 ),
               ),
-              const SizedBox(width: AppConstants.spaceSM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.product.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          '\$${item.lineTotal.toStringAsFixed(2)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (item.product.discountPercentage > 0) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            '\$${item.lineSubtotal.toStringAsFixed(2)}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              decoration: TextDecoration.lineThrough,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              product.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppFonts.sans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: palette.ink),
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
+                            const SizedBox(height: 3),
+                            Text(
+                              shortCategoryLabel(product.category),
+                              style: AppFonts.sans(
+                                  fontSize: 11, color: palette.hint),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: IconButton(
+                          tooltip: 'Remove ${product.title}',
+                          padding: EdgeInsets.zero,
+                          iconSize: 18,
+                          color: palette.hint,
+                          onPressed: onRemove,
+                          icon: const Icon(Icons.delete_outline_rounded),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _money(item.lineTotal),
+                              style: AppFonts.sans(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: palette.ink),
+                            ),
+                            if (product.discountPercentage > 0)
+                              Text(
+                                _money(item.lineSubtotal),
+                                style: AppFonts.sans(
+                                        fontSize: 11, color: palette.hint)
+                                    .copyWith(
+                                        decoration: TextDecoration.lineThrough),
+                              ),
+                          ],
+                        ),
+                      ),
+                      // Going below 1 removes the item, as before.
+                      QuantityStepper(
+                        value: item.quantity,
+                        min: 0,
+                        onChanged: onQuantityChanged,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              _QuantityStepper(quantity: item.quantity, onChanged: onQuantityChanged),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-}
-
-class _QuantityStepper extends StatelessWidget {
-  const _QuantityStepper({required this.quantity, required this.onChanged});
-
-  final int quantity;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(AppConstants.radiusL),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _StepButton(icon: Icons.remove_rounded, onTap: () => onChanged(quantity - 1)),
-          SizedBox(
-            width: 22,
-            child: Text('$quantity', textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-          ),
-          _StepButton(icon: Icons.add_rounded, onTap: () => onChanged(quantity + 1)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepButton extends StatelessWidget {
-  const _StepButton({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppConstants.radiusM),
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Icon(icon, size: 16),
       ),
     );
   }

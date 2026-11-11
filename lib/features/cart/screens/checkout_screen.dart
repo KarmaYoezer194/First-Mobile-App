@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/common_widgets.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../providers/cart_provider.dart';
 import '../models/cart_item.dart';
 import '../models/payment_method.dart';
@@ -37,10 +38,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   // Pre-filled with a fake test card in debug builds only, so you don't
   // have to retype it on every hot restart. Stripped from release builds.
   // Card details are never transmitted (see class doc above).
-  final _cardNameController = TextEditingController(text: kDebugMode ? 'Test User' : '');
-  final _cardNumberController = TextEditingController(text: kDebugMode ? '4242 4242 4242 4242' : '');
-  final _cardExpiryController = TextEditingController(text: kDebugMode ? '12/29' : '');
-  final _cardCvvController = TextEditingController(text: kDebugMode ? '123' : '');
+  final _cardNameController =
+      TextEditingController(text: kDebugMode ? 'Test User' : '');
+  final _cardNumberController =
+      TextEditingController(text: kDebugMode ? '4242 4242 4242 4242' : '');
+  final _cardExpiryController =
+      TextEditingController(text: kDebugMode ? '12/29' : '');
+  final _cardCvvController =
+      TextEditingController(text: kDebugMode ? '123' : '');
   final _voucherController = TextEditingController();
 
   // Demo delivery address — not persisted anywhere, same fidelity as the
@@ -106,40 +111,44 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(AppConstants.spaceL),
+            padding: const EdgeInsets.fromLTRB(AppConstants.pagePadding, 0,
+                AppConstants.pagePadding, AppConstants.pagePadding),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Delivery address', style: Theme.of(ctx).textTheme.titleLarge),
-                const SizedBox(height: AppConstants.spaceL),
-                TextFormField(
+                Text('Delivery address',
+                    style:
+                        AppFonts.serif(fontSize: 22, color: ctx.palette.ink)),
+                const SizedBox(height: 18),
+                AppTextField(
+                  label: 'Recipient name',
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Recipient name'),
+                  icon: Icons.person_outline_rounded,
                 ),
-                const SizedBox(height: AppConstants.spaceM),
-                TextFormField(
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Phone number',
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Phone number'),
+                  icon: Icons.phone_outlined,
                 ),
-                const SizedBox(height: AppConstants.spaceM),
-                TextFormField(
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Address',
                   controller: addressController,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Address'),
+                  icon: Icons.location_on_outlined,
                 ),
-                const SizedBox(height: AppConstants.spaceL),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Save'),
-                  ),
+                const SizedBox(height: 22),
+                PrimaryButton(
+                  label: 'Save',
+                  onPressed: () => Navigator.pop(ctx, true),
                 ),
               ],
             ),
@@ -182,128 +191,242 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               );
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => OrderConfirmationScreen(order: order)),
+        MaterialPageRoute(
+            builder: (_) => OrderConfirmationScreen(order: order)),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      final message = ref.read(cartProvider).error ?? 'Could not place your order.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      final message =
+          ref.read(cartProvider).error ?? 'Could not place your order.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final buyNowItem = widget.buyNowItem;
+    final items = buyNowItem != null
+        ? [buyNowItem]
+        : ref.watch(cartProvider.select((s) => s.selectedItems));
     final basePricing = buyNowItem != null
         ? PricingSummary.fromItems([buyNowItem])
         : ref.watch(cartProvider.select((s) => s.selectedPricing));
     final pricing = basePricing.applyVoucher(_voucherDiscount);
+    final voucherAmount = pricing.discount - basePricing.discount;
+    final itemCount = items.fold<int>(0, (sum, i) => sum + i.quantity);
+
+    Widget section(String label, Widget child) => Padding(
+          padding: const EdgeInsets.only(bottom: 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [SectionLabel(label), const SizedBox(height: 10), child],
+          ),
+        );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Payment')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppConstants.spaceM),
-        children: [
-          const SectionHeader(title: 'Delivery Address'),
-          const SizedBox(height: AppConstants.spaceSM),
-          _AddressCard(
-            name: _addressName,
-            phone: _addressPhone,
-            address: _addressLine,
-            onEdit: _editAddress,
-          ),
-          const SizedBox(height: AppConstants.spaceL),
-          const SectionHeader(title: 'Bill Details'),
-          const SizedBox(height: AppConstants.spaceSM),
-          _PricingCard(pricing: pricing),
-          const SizedBox(height: AppConstants.spaceL),
-          const SectionHeader(title: 'Voucher'),
-          const SizedBox(height: AppConstants.spaceSM),
-          _VoucherRow(
-            controller: _voucherController,
-            appliedCode: _appliedVoucherCode,
-            error: _voucherError,
-            onApply: () => _applyVoucher(basePricing),
-            onRemove: _removeVoucher,
-          ),
-          const SizedBox(height: AppConstants.spaceL),
-          const SectionHeader(title: 'Payment Method'),
-          const SizedBox(height: AppConstants.spaceSM),
-          _PaymentMethodCard(
-            selected: _method,
-            onChanged: (method) => setState(() => _method = method),
-          ),
-          AnimatedSize(
-            duration: AppConstants.animFast,
-            child: _method == PaymentMethod.card
-                ? Padding(
-                    padding: const EdgeInsets.only(top: AppConstants.spaceL),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Back button + centred title.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+              child: SizedBox(
+                height: AppConstants.minTapTarget,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: CircleIconButton(
+                        icon: Icons.chevron_left_rounded,
+                        tooltip: 'Back',
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                    ),
+                    Semantics(
+                      header: true,
+                      child: Text('Checkout',
+                          style: AppFonts.sans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: palette.ink)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                    AppConstants.pagePadding, 14, AppConstants.pagePadding, 24),
+                children: [
+                  section(
+                    'Delivery address',
+                    _AddressCard(
+                      name: _addressName,
+                      phone: _addressPhone,
+                      address: _addressLine,
+                      onEdit: _editAddress,
+                    ),
+                  ),
+                  section(
+                    'Voucher',
+                    _VoucherSection(
+                      controller: _voucherController,
+                      appliedCode: _appliedVoucherCode,
+                      appliedAmount: voucherAmount,
+                      error: _voucherError,
+                      onApply: () => _applyVoucher(basePricing),
+                      onRemove: _removeVoucher,
+                    ),
+                  ),
+                  section(
+                    'Payment method',
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SectionHeader(title: 'Save Card'),
-                        const SizedBox(height: AppConstants.spaceSM),
-                        // A visual-only preview — this app has no real
-                        // payment processor behind it (see PaymentMethod's
-                        // doc comment), so nothing here is actually saved;
-                        // it just mirrors the form below as you type, the
-                        // way a real "Save Card" screen's card art would.
                         ListenableBuilder(
-                          listenable: Listenable.merge(
-                            [_cardNameController, _cardNumberController, _cardExpiryController],
-                          ),
-                          builder: (context, _) => _CardPreview(
-                            name: _cardNameController.text,
-                            number: _cardNumberController.text,
-                            expiry: _cardExpiryController.text,
+                          listenable: _cardNumberController,
+                          builder: (context, _) => _PaymentMethods(
+                            selected: _method,
+                            cardNumber: _cardNumberController.text,
+                            onChanged: (method) =>
+                                setState(() => _method = method),
                           ),
                         ),
-                        const SizedBox(height: AppConstants.spaceM),
-                        _CardForm(
-                          formKey: _cardFormKey,
-                          nameController: _cardNameController,
-                          numberController: _cardNumberController,
-                          expiryController: _cardExpiryController,
-                          cvvController: _cardCvvController,
+                        AnimatedSize(
+                          duration: AppConstants.animToggle,
+                          curve: AppConstants.animCurve,
+                          child: _method == PaymentMethod.card
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 14),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      // A visual-only preview — this app has
+                                      // no real payment processor behind it
+                                      // (see PaymentMethod's doc comment), so
+                                      // nothing here is saved; it mirrors the
+                                      // form below as you type.
+                                      ListenableBuilder(
+                                        listenable: Listenable.merge([
+                                          _cardNameController,
+                                          _cardNumberController,
+                                          _cardExpiryController,
+                                        ]),
+                                        builder: (context, _) => _CardPreview(
+                                          name: _cardNameController.text,
+                                          number: _cardNumberController.text,
+                                          expiry: _cardExpiryController.text,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      _CardForm(
+                                        formKey: _cardFormKey,
+                                        nameController: _cardNameController,
+                                        numberController: _cardNumberController,
+                                        expiryController: _cardExpiryController,
+                                        cvvController: _cardCvvController,
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : const SizedBox(width: double.infinity),
                         ),
                       ],
                     ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
+                  ),
+                  section(
+                    'Order summary',
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SummaryCard(
+                          lines: [
+                            SummaryLine(
+                                'Subtotal ($itemCount ${itemCount == 1 ? 'item' : 'items'})',
+                                _money(basePricing.subtotal)),
+                            if (basePricing.discount > 0)
+                              SummaryLine('Discount',
+                                  '-${_money(basePricing.discount)}',
+                                  valueColor: palette.success),
+                            if (_appliedVoucherCode != null)
+                              SummaryLine('Voucher $_appliedVoucherCode',
+                                  '-${_money(voucherAmount)}',
+                                  highlight: true),
+                            SummaryLine(
+                              'Shipping',
+                              pricing.shipping == 0
+                                  ? 'Free'
+                                  : _money(pricing.shipping),
+                              valueColor: pricing.shipping == 0
+                                  ? palette.success
+                                  : null,
+                            ),
+                            SummaryLine(
+                              'Tax (${(PricingSummary.taxRate * 100).toStringAsFixed(0)}%)',
+                              _money(pricing.tax),
+                            ),
+                          ],
+                          totalValue: _money(pricing.total),
+                        ),
+                        if (pricing.remainingForFreeShipping > 0) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Add ${_money(pricing.remainingForFreeShipping)} more to get free shipping',
+                            textAlign: TextAlign.center,
+                            style: AppFonts.sans(
+                                fontSize: 11.5, color: palette.hint),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppConstants.spaceM,
-            AppConstants.spaceSM,
-            AppConstants.spaceM,
-            AppConstants.spaceM,
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton(
-              onPressed: _isSubmitting ? null : _placeOrder,
-              child: _isSubmitting
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      // FilledButton's default label color is already
-                      // `onPrimary` — match it so the spinner doesn't wash
-                      // out against the lighter coral this button becomes in
-                      // dark mode.
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    )
-                  // The total is already shown in Bill Details' "Total"
-                  // row right above this button — matches the reference's
-                  // plain "Order Now" rather than repeating the amount here.
-                  : const Text('Order Now'),
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: palette.surface,
+          border: Border(top: BorderSide(color: palette.border)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppConstants.pagePadding, 14, AppConstants.pagePadding, 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PrimaryButton(
+                  label: 'Place Order · ${_money(pricing.total)}',
+                  loading: _isSubmitting,
+                  onPressed: _placeOrder,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.info_outline_rounded,
+                        size: 13, color: palette.hint),
+                    const SizedBox(width: 5),
+                    Text(
+                      // Honest wording: checkout is a demo and no payment
+                      // is taken (see PaymentMethod's doc comment).
+                      'Demo checkout · no real payment is taken',
+                      style: AppFonts.sans(fontSize: 11, color: palette.hint),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -312,9 +435,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 }
 
-/// The "Deliver to" card every Lazada checkout opens with — recipient,
-/// phone, and address, with a tap-to-edit bottom sheet. Demo-only: nothing
-/// here is persisted, same as the card-payment form below it.
+String _money(double value) => '\$${value.toStringAsFixed(2)}';
+
+/// Recipient, address and phone, with a gold "Change" link that opens the
+/// edit sheet. Demo-only: nothing here is persisted.
 class _AddressCard extends StatelessWidget {
   const _AddressCard({
     required this.name,
@@ -330,40 +454,65 @@ class _AddressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
+    final palette = context.palette;
+    final radius = BorderRadius.circular(AppConstants.radiusM);
+    return Material(
+      color: palette.surface,
+      shape: RoundedRectangleBorder(
+          borderRadius: radius, side: BorderSide(color: palette.border)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppConstants.radiusM),
+        borderRadius: radius,
         onTap: onEdit,
         child: Padding(
-          padding: const EdgeInsets.all(AppConstants.spaceM),
+          padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.location_on_rounded, color: theme.colorScheme.primary),
-              const SizedBox(width: AppConstants.spaceSM),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: palette.surfaceSoft,
+                  borderRadius:
+                      BorderRadius.circular(AppConstants.radiusIconWell),
+                ),
+                child: Icon(Icons.location_on_outlined,
+                    size: 17, color: palette.ink),
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 8),
-                        Text(
-                          phone,
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
+                    Text(name,
+                        style: AppFonts.sans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: palette.ink)),
                     const SizedBox(height: 4),
-                    Text(address, style: theme.textTheme.bodyMedium),
+                    Text(address,
+                        style: AppFonts.sans(
+                            fontSize: 12,
+                            color: palette.inkMuted,
+                            height: 1.45)),
+                    const SizedBox(height: 2),
+                    Text(phone,
+                        style: AppFonts.sans(
+                            fontSize: 12, color: palette.inkMuted)),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
+              TextButton(
+                onPressed: onEdit,
+                style: TextButton.styleFrom(
+                  foregroundColor: palette.gold,
+                  minimumSize: const Size(AppConstants.minTapTarget, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  textStyle:
+                      AppFonts.sans(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+                child: const Text('Change'),
+              ),
             ],
           ),
         ),
@@ -372,13 +521,14 @@ class _AddressCard extends StatelessWidget {
   }
 }
 
-/// Promo-code entry: an active voucher shows as a dismissible chip-like
-/// row; otherwise a text field + Apply button. Try `LAZADA10` (10% off) or
-/// `SAVE5` ($5 off) — this is a front-end simulation, not a real backend.
-class _VoucherRow extends StatelessWidget {
-  const _VoucherRow({
+/// Voucher field + ink Apply button. Once applied, a dashed gold row shows
+/// the code, what it took off, and a remove button. Try `LAZADA10` (10%
+/// off) or `SAVE5` ($5 off) — a front-end simulation, not a real backend.
+class _VoucherSection extends StatelessWidget {
+  const _VoucherSection({
     required this.controller,
     required this.appliedCode,
+    required this.appliedAmount,
     required this.error,
     required this.onApply,
     required this.onRemove,
@@ -386,278 +536,218 @@ class _VoucherRow extends StatelessWidget {
 
   final TextEditingController controller;
   final String? appliedCode;
+  final double appliedAmount;
   final String? error;
   final VoidCallback onApply;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (appliedCode != null) {
-      return Card(
-        margin: EdgeInsets.zero,
-        color: AppColors.success.withValues(alpha: 0.08),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppConstants.spaceM,
-            vertical: AppConstants.spaceSM,
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.local_offer_rounded, color: AppColors.success),
-              const SizedBox(width: AppConstants.spaceSM),
-              Expanded(
-                child: Text(
-                  '"$appliedCode" applied',
-                  style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.success),
-                ),
-              ),
-              TextButton(onPressed: onRemove, child: const Text('Remove')),
-            ],
-          ),
-        ),
-      );
-    }
+    final palette = context.palette;
+    final scheme = Theme.of(context).colorScheme;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: TextField(
+              child: AppTextField(
                 controller: controller,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  hintText: 'Enter voucher code',
-                  prefixIcon: const Icon(Icons.local_offer_outlined),
-                  errorText: error,
-                  border: const OutlineInputBorder(),
-                ),
+                hint: 'Enter voucher code',
+                icon: Icons.local_offer_outlined,
+                textInputAction: TextInputAction.done,
                 onSubmitted: (_) => onApply(),
               ),
             ),
-            const SizedBox(width: AppConstants.spaceSM),
-            FilledButton.tonal(onPressed: onApply, child: const Text('Apply')),
+            const SizedBox(width: 10),
+            Pressable(
+              child: Material(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(AppConstants.radiusInput),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppConstants.radiusInput),
+                  onTap: onApply,
+                  child: SizedBox(
+                    height: AppConstants.fieldHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Center(
+                        child: Text('Apply',
+                            style: AppFonts.sans(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onPrimary)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
-        Padding(
-          padding: const EdgeInsets.only(top: 6, left: 4),
-          child: Text(
-            'Try LAZADA10 or SAVE5',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(height: 8),
+        if (error != null)
+          Text(error!,
+              style: AppFonts.sans(fontSize: 12, color: palette.danger))
+        else if (appliedCode == null)
+          Text('Try LAZADA10 or SAVE5',
+              style: AppFonts.sans(fontSize: 11.5, color: palette.hint)),
+        if (appliedCode != null)
+          CustomPaint(
+            painter: _DashedBorderPainter(
+                color: palette.gold, radius: AppConstants.radiusInput),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+              decoration: BoxDecoration(
+                color: palette.gold.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(AppConstants.radiusInput),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: palette.gold,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(appliedCode!,
+                        style: AppFonts.sans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                            letterSpacing: 0.5)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('${_money(appliedAmount)} off applied',
+                        style: AppFonts.sans(
+                            fontSize: 12, color: palette.inkMuted)),
+                  ),
+                  IconButton(
+                    tooltip: 'Remove voucher',
+                    iconSize: 18,
+                    color: palette.hint,
+                    onPressed: onRemove,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
       ],
     );
   }
 }
 
-class _PricingCard extends StatelessWidget {
-  const _PricingCard({required this.pricing});
+class _DashedBorderPainter extends CustomPainter {
+  _DashedBorderPainter({required this.color, required this.radius});
 
-  final PricingSummary pricing;
+  final Color color;
+  final double radius;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final freeShippingGap = pricing.remainingForFreeShipping;
-
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(AppConstants.spaceM),
-        child: Column(
-          children: [
-            _PriceRow(label: 'Subtotal', value: pricing.subtotal),
-            if (pricing.discount > 0)
-              _PriceRow(label: 'Discount', value: -pricing.discount, isDiscount: true),
-            _PriceRow(
-              label: 'Shipping',
-              value: pricing.shipping,
-              freeLabel: pricing.shipping == 0,
-            ),
-            _PriceRow(label: 'Tax (${(PricingSummary.taxRate * 100).toStringAsFixed(0)}%)', value: pricing.tax),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: AppConstants.spaceS),
-              child: Divider(height: 1),
-            ),
-            _PriceRow(label: 'Total', value: pricing.total, emphasize: true),
-            if (freeShippingGap > 0) ...[
-              const SizedBox(height: AppConstants.spaceSM),
-              Text(
-                'Add \$${freeShippingGap.toStringAsFixed(2)} more to get free shipping',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+        (Offset.zero & size).deflate(0.5), Radius.circular(radius));
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final metric in (Path()..addRRect(rrect)).computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, distance + 4), paint);
+        distance += 7;
+      }
+    }
   }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter old) =>
+      old.color != color || old.radius != radius;
 }
 
-class _PriceRow extends StatelessWidget {
-  const _PriceRow({
-    required this.label,
-    required this.value,
-    this.emphasize = false,
-    this.isDiscount = false,
-    this.freeLabel = false,
+/// The app's payment options as radio rows. UI only, as before.
+class _PaymentMethods extends StatelessWidget {
+  const _PaymentMethods({
+    required this.selected,
+    required this.cardNumber,
+    required this.onChanged,
   });
-
-  final String label;
-  final double value;
-  final bool emphasize;
-  final bool isDiscount;
-  final bool freeLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final valueText = freeLabel
-        ? 'Free'
-        : '${isDiscount ? '-' : ''}\$${value.abs().toStringAsFixed(2)}';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: emphasize
-                ? theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
-                : theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          Text(
-            valueText,
-            style: emphasize
-                ? theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)
-                : theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: isDiscount || freeLabel ? AppColors.success : null,
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A row of selectable icon+label tiles — one per [PaymentMethod] — styled
-/// after the reference's "Others way to payment" row, rather than the
-/// vertical radio list this replaced.
-class _PaymentMethodCard extends StatelessWidget {
-  const _PaymentMethodCard({required this.selected, required this.onChanged});
 
   final PaymentMethod selected;
+  final String cardNumber;
   final ValueChanged<PaymentMethod> onChanged;
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (int i = 0; i < PaymentMethod.values.length; i++) ...[
-          if (i > 0) const SizedBox(width: AppConstants.spaceSM),
-          Expanded(
-            child: _PaymentMethodTile(
-              method: PaymentMethod.values[i],
-              selected: selected == PaymentMethod.values[i],
-              onTap: () => onChanged(PaymentMethod.values[i]),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _PaymentMethodTile extends StatelessWidget {
-  const _PaymentMethodTile({
-    required this.method,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final PaymentMethod method;
-  final bool selected;
-  final VoidCallback onTap;
-
-  IconData get _icon => switch (method) {
+  IconData _icon(PaymentMethod method) => switch (method) {
         PaymentMethod.card => Icons.credit_card_rounded,
-        PaymentMethod.paypal => Icons.account_balance_wallet_rounded,
-        PaymentMethod.cashOnDelivery => Icons.payments_rounded,
+        PaymentMethod.paypal => Icons.account_balance_wallet_outlined,
+        PaymentMethod.cashOnDelivery => Icons.payments_outlined,
       };
 
-  // A distinct brand-ish color per method — the little colored icon is
-  // what makes the row scannable at a glance, the way Lazada's list was.
-  Color get _brandColor => switch (method) {
-        PaymentMethod.card => Colors.blue.shade600,
-        PaymentMethod.paypal => Colors.indigo.shade600,
-        PaymentMethod.cashOnDelivery => Colors.green.shade600,
-      };
-
-  // A short label fits this tile's width better than method.label's full
-  // "Credit / Debit Card" — the full text is still one tap away via the
-  // long-press tooltip below.
-  String get _shortLabel => switch (method) {
-        PaymentMethod.card => 'Card',
-        PaymentMethod.paypal => 'PayPal',
-        PaymentMethod.cashOnDelivery => 'COD',
-      };
+  String _subtitle(PaymentMethod method) {
+    if (method == PaymentMethod.card) {
+      final digits = cardNumber.replaceAll(' ', '');
+      if (digits.length >= 4) {
+        return 'Card •••• ${digits.substring(digits.length - 4)}';
+      }
+    }
+    return method.description;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      margin: EdgeInsets.zero,
-      color: selected ? theme.colorScheme.primary.withValues(alpha: 0.08) : null,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppConstants.radiusM),
-        side: BorderSide(
-          color: selected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
-          width: selected ? 1.6 : 1,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppConstants.radiusM),
-        onTap: onTap,
-        child: Tooltip(
-          message: method.description,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppConstants.spaceM, horizontal: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(_icon, color: _brandColor, size: 24),
-                const SizedBox(height: 6),
-                Text(
-                  _shortLabel,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                ),
-              ],
-            ),
+    return ListRowCard(children: [
+      for (final method in PaymentMethod.values)
+        Semantics(
+          inMutuallyExclusiveGroup: true,
+          checked: method == selected,
+          child: ListRow(
+            icon: _icon(method),
+            title: method.label,
+            subtitle: _subtitle(method),
+            trailing: _RadioDot(selected: method == selected),
+            onTap: () => onChanged(method),
           ),
+        ),
+    ]);
+  }
+}
+
+/// Selected: 6px ink ring. Unselected: thin warm-grey ring.
+class _RadioDot extends StatelessWidget {
+  const _RadioDot({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return AnimatedContainer(
+      duration: AppConstants.animToggle,
+      curve: AppConstants.animCurve,
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: palette.surface,
+        border: Border.all(
+          color: selected ? palette.ink : palette.borderStrong,
+          width: selected ? 6 : 1.5,
         ),
       ),
     );
   }
 }
 
-/// Dark card-art preview, styled after the reference's "Save Card" screen —
-/// mirrors [_CardForm]'s fields live as the user types. Purely decorative:
-/// see [_CardForm]'s doc comment, nothing here is transmitted or stored
-/// anywhere either.
+/// Ink card art that mirrors [_CardForm] as the user types. Purely
+/// decorative: nothing here is transmitted or stored.
 class _CardPreview extends StatelessWidget {
-  const _CardPreview({required this.name, required this.number, required this.expiry});
+  const _CardPreview(
+      {required this.name, required this.number, required this.expiry});
 
   final String name;
   final String number;
@@ -671,95 +761,75 @@ class _CardPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppConstants.spaceL),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppConstants.radiusL),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2B2B36), Color(0xFF17171F)],
+    final palette = context.palette;
+    final label = AppFonts.sans(
+        fontSize: 9.5,
+        fontWeight: FontWeight.w600,
+        color: palette.onHeroCard.withValues(alpha: 0.55),
+        letterSpacing: 0.8);
+    final value = AppFonts.sans(
+        fontSize: 13, fontWeight: FontWeight.w600, color: palette.onHeroCard);
+
+    return ExcludeSemantics(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: palette.heroCard,
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'CARD TYPE',
-                    style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 0.6),
-                  ),
-                  SizedBox(height: 6),
-                  Icon(Icons.memory_rounded, color: Colors.white70, size: 26),
-                ],
-              ),
-              Spacer(),
-              Text(
-                'VISA',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontStyle: FontStyle.italic,
-                  fontSize: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppConstants.spaceL),
-          Text(
-            _displayNumber,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.memory_rounded, color: palette.goldLight, size: 26),
+                const Spacer(),
+                Text('CARD',
+                    style:
+                        AppFonts.serif(fontSize: 16, color: palette.goldLight)),
+              ],
             ),
-          ),
-          const SizedBox(height: AppConstants.spaceM),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 22),
+            Text(_displayNumber,
+                style: AppFonts.sans(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: palette.onHeroCard,
+                    letterSpacing: 1.2)),
+            const SizedBox(height: 18),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('CARD HOLDER', style: label),
+                      const SizedBox(height: 4),
+                      Text(
+                        name.trim().isEmpty
+                            ? 'YOUR NAME'
+                            : name.trim().toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: value,
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
-                      'CARD HOLDER',
-                      style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 0.6),
-                    ),
+                    Text('EXPIRES', style: label),
                     const SizedBox(height: 4),
-                    Text(
-                      name.trim().isEmpty ? 'YOUR NAME' : name.trim().toUpperCase(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
+                    Text(expiry.trim().isEmpty ? 'MM/YY' : expiry.trim(),
+                        style: value),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    'EXPIRES',
-                    style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 0.6),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    expiry.trim().isEmpty ? 'MM/YY' : expiry.trim(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -787,76 +857,71 @@ class _CardForm extends StatelessWidget {
     return Form(
       key: formKey,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
+          AppTextField(
+            label: 'Name on card',
             controller: nameController,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Name on Card',
-              border: OutlineInputBorder(),
-            ),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Enter the name on the card' : null,
+            icon: Icons.person_outline_rounded,
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? 'Enter the name on the card'
+                : null,
           ),
-          const SizedBox(height: AppConstants.spaceSM),
-          TextFormField(
+          const SizedBox(height: 14),
+          AppTextField(
+            label: 'Card number',
+            hint: '1234 5678 9012 3456',
             controller: numberController,
             keyboardType: TextInputType.number,
-            maxLength: 19,
+            icon: Icons.credit_card_rounded,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(16),
               _CardNumberFormatter(),
             ],
-            decoration: const InputDecoration(
-              labelText: 'Card Number',
-              hintText: '1234 5678 9012 3456',
-              border: OutlineInputBorder(),
-              counterText: '',
-            ),
             validator: (v) {
               final digits = (v ?? '').replaceAll(' ', '');
-              if (digits.length < 16) return 'Enter a valid 16-digit card number';
+              if (digits.length < 16) {
+                return 'Enter a valid 16-digit card number';
+              }
               return null;
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: TextFormField(
+                child: AppTextField(
+                  label: 'Expiry (MM/YY)',
+                  hint: 'MM/YY',
                   controller: expiryController,
                   keyboardType: TextInputType.number,
-                  maxLength: 5,
+                  icon: Icons.calendar_today_outlined,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(4),
                     _ExpiryDateFormatter(),
                   ],
-                  decoration: const InputDecoration(
-                    labelText: 'Expiry (MM/YY)',
-                    hintText: 'MM/YY',
-                    border: OutlineInputBorder(),
-                    counterText: '',
-                  ),
                   validator: (v) {
-                    final match = RegExp(r'^(0[1-9]|1[0-2])/\d{2}$').hasMatch(v ?? '');
+                    final match =
+                        RegExp(r'^(0[1-9]|1[0-2])/\d{2}$').hasMatch(v ?? '');
                     return match ? null : 'MM/YY';
                   },
                 ),
               ),
-              const SizedBox(width: AppConstants.spaceSM),
+              const SizedBox(width: 12),
               Expanded(
-                child: TextFormField(
+                child: AppTextField(
+                  label: 'CVV',
                   controller: cvvController,
                   keyboardType: TextInputType.number,
-                  maxLength: 4,
                   obscureText: true,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(
-                    labelText: 'CVV',
-                    border: OutlineInputBorder(),
-                    counterText: '',
-                  ),
+                  icon: Icons.lock_outline_rounded,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(4),
+                  ],
                   validator: (v) =>
                       (v != null && v.length >= 3) ? null : 'Enter a valid CVV',
                 ),
@@ -872,7 +937,8 @@ class _CardForm extends StatelessWidget {
 /// Inserts a space every 4 digits as the user types a card number.
 class _CardNumberFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
     final digits = newValue.text.replaceAll(' ', '');
     final buffer = StringBuffer();
     for (int i = 0; i < digits.length; i++) {
@@ -889,7 +955,8 @@ class _CardNumberFormatter extends TextInputFormatter {
 /// Inserts a `/` after the 2nd digit as the user types an expiry date.
 class _ExpiryDateFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
     final digits = newValue.text.replaceAll('/', '');
     final buffer = StringBuffer();
     for (int i = 0; i < digits.length; i++) {

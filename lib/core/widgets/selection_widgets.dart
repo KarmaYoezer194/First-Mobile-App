@@ -101,7 +101,10 @@ class AppChip extends StatelessWidget {
         opacity: enabled ? 1 : 0.45,
         child: SizedBox(
           height: AppConstants.minTapTarget,
+          // widthFactor keeps the chip as wide as its label (in a Wrap it
+          // would otherwise stretch to the full row).
           child: Center(
+            widthFactor: 1,
             child: AnimatedContainer(
               duration: AppConstants.animToggle,
               curve: AppConstants.animCurve,

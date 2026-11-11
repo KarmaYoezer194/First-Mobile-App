@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/circle_icon_button.dart';
 import '../../../providers/cart_provider.dart';
 import 'cart_icon_anchor.dart';
 
-/// Shopping-cart icon with a live item-count badge that bumps whenever the
-/// count changes. Also registers its on-screen position with
-/// [CartIconAnchor] so `flyToCart` (see fly_to_cart.dart) knows where to
-/// land its animation — drop this into any AppBar's `actions` (or a FAB)
-/// to give a product-browsing screen both quick cart access and a valid
-/// fly-to-cart target.
+/// Round cart button with a live item-count badge that bumps whenever the
+/// count changes. Also registers its position with [CartIconAnchor] so
+/// `flyToCart` (see fly_to_cart.dart) knows where to land its animation.
 class CartBadge extends ConsumerStatefulWidget {
-  const CartBadge({super.key});
+  const CartBadge({super.key, this.shadow = false});
+
+  /// Floating over an image (Product detail) gets a light shadow.
+  final bool shadow;
 
   @override
   ConsumerState<CartBadge> createState() => _CartBadgeState();
@@ -27,8 +28,8 @@ class _CartBadgeState extends ConsumerState<CartBadge>
     duration: const Duration(milliseconds: 260),
   );
   late final Animation<double> _bump = TweenSequence<double>([
-    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35), weight: 40),
-    TweenSequenceItem(tween: Tween(begin: 1.35, end: 1.0), weight: 60),
+    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.15), weight: 40),
+    TweenSequenceItem(tween: Tween(begin: 1.15, end: 1.0), weight: 60),
   ]).animate(CurvedAnimation(parent: _bumpController, curve: Curves.easeOut));
 
   int? _lastCount;
@@ -60,17 +61,16 @@ class _CartBadgeState extends ConsumerState<CartBadge>
     }
     _lastCount = count;
 
-    return IconButton(
+    return ScaleTransition(
       key: _anchorKey,
-      tooltip: 'Cart',
-      onPressed: () => context.push('/cart'),
-      icon: ScaleTransition(
-        scale: _bump,
-        child: Badge(
-          label: Text('$count'),
-          isLabelVisible: count > 0,
-          child: const Icon(Icons.shopping_cart_outlined),
-        ),
+      scale: _bump,
+      child: CircleIconButton(
+        icon: Icons.shopping_bag_outlined,
+        tooltip: 'Cart',
+        badgeCount: count,
+        bordered: !widget.shadow,
+        shadow: widget.shadow,
+        onPressed: () => context.push('/cart'),
       ),
     );
   }
