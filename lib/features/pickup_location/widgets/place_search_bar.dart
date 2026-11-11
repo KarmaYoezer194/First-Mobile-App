@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../models/place_prediction.dart';
 import '../providers/autocomplete_notifier.dart';
 
@@ -49,37 +52,40 @@ class _PlaceSearchBarState extends ConsumerState<PlaceSearchBar> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.palette;
     final predictionsAsync = ref.watch(autocompleteProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Material(
-          elevation: 3,
-          borderRadius: BorderRadius.circular(16),
-          color: theme.colorScheme.surface,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppConstants.radiusInput),
+            boxShadow: AppShadows.floating,
+          ),
           child: TextField(
             controller: _controller,
             focusNode: _focusNode,
             textInputAction: TextInputAction.search,
+            style: AppFonts.sans(fontSize: 14, color: palette.ink),
             decoration: InputDecoration(
               hintText: 'Search for a pickup location',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search_rounded, size: 19),
               suffixIcon: _controller.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: const Icon(Icons.close_rounded, size: 18),
                       onPressed: _handleClear,
                       tooltip: 'Clear search',
                     )
                   : null,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppConstants.radiusInput),
                 borderSide: BorderSide.none,
               ),
-              filled: true,
-              fillColor: theme.colorScheme.surface,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppConstants.radiusInput),
+                borderSide: BorderSide.none,
+              ),
             ),
             onChanged: (value) {
               setState(() {});
@@ -114,45 +120,44 @@ class _SuggestionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.palette;
     return Container(
       margin: const EdgeInsets.only(top: 6),
       constraints: const BoxConstraints(maxHeight: 260),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusM),
+        boxShadow: AppShadows.floating,
       ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        itemCount: predictions.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final prediction = predictions[index];
-          return ListTile(
-            leading: const Icon(Icons.place_outlined),
-            title: Text(
-              prediction.mainText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: prediction.secondaryText.isNotEmpty
-                ? Text(
-                    prediction.secondaryText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  )
-                : null,
-            onTap: () => onSelected(prediction),
-          );
-        },
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListView.separated(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          itemCount: predictions.length,
+          separatorBuilder: (_, __) =>
+              Divider(height: 1, indent: 52, color: palette.border),
+          itemBuilder: (context, index) {
+            final prediction = predictions[index];
+            return ListTile(
+              leading: Icon(Icons.place_outlined, color: palette.inkMuted),
+              title: Text(
+                prediction.mainText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: prediction.secondaryText.isNotEmpty
+                  ? Text(
+                      prediction.secondaryText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : null,
+              onTap: () => onSelected(prediction),
+            );
+          },
+        ),
       ),
     );
   }
@@ -167,8 +172,9 @@ class _SuggestionsLoading extends StatelessWidget {
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        color: context.palette.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusM),
+        boxShadow: AppShadows.floating,
       ),
       alignment: Alignment.center,
       child: const SizedBox(
@@ -186,16 +192,17 @@ class _SuggestionsError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(16),
+        color: palette.dangerBg,
+        borderRadius: BorderRadius.circular(AppConstants.radiusInput),
       ),
       child: Text(
         'Search failed: $message',
-        style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+        style: AppFonts.sans(fontSize: 12, color: palette.danger),
       ),
     );
   }

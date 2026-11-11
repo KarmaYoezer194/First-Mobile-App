@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/common_widgets.dart';
+import '../../../core/widgets/primary_button.dart';
+
 /// Full-screen loading state, e.g. while first acquiring GPS location.
 class MapLoadingView extends StatelessWidget {
   final String message;
@@ -7,13 +13,26 @@ class MapLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+                color: palette.surfaceSoft, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(message,
+              style: AppFonts.sans(fontSize: 13, color: palette.inkMuted)),
         ],
       ),
     );
@@ -30,28 +49,15 @@ class MapErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.location_off_outlined, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
-            ),
-          ],
-        ),
+    return PlaceholderState(
+      icon: Icons.location_off_outlined,
+      title: "Can't find your location",
+      message: message,
+      action: PrimaryButton(
+        label: 'Try again',
+        icon: Icons.refresh_rounded,
+        expand: false,
+        onPressed: onRetry,
       ),
     );
   }
@@ -67,28 +73,26 @@ class InlineErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.palette;
     return Material(
-      color: theme.colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(12),
+      color: palette.dangerBg,
+      borderRadius: BorderRadius.circular(AppConstants.radiusInput),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
         child: Row(
           children: [
-            Icon(Icons.error_outline, size: 18, color: theme.colorScheme.onErrorContainer),
+            Icon(Icons.error_outline_rounded, size: 18, color: palette.danger),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                message,
-                style: TextStyle(color: theme.colorScheme.onErrorContainer, fontSize: 13),
-              ),
+              child: Text(message,
+                  style: AppFonts.sans(fontSize: 12, color: palette.danger)),
             ),
             if (onDismiss != null)
               IconButton(
-                icon: Icon(Icons.close, size: 16, color: theme.colorScheme.onErrorContainer),
+                tooltip: 'Dismiss',
+                icon:
+                    Icon(Icons.close_rounded, size: 16, color: palette.danger),
                 onPressed: onDismiss,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
               ),
           ],
         ),
