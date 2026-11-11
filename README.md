@@ -1,91 +1,114 @@
-# Premium Auth & Profile Module
+# GoBuy
 
-A complete Authentication + User Profile module built with Flutter, Firebase, Riverpod, and GoRouter.
+A Flutter shopping app built on Firebase. Users sign in, browse a product
+catalog, add items to a cart, check out, and pick a nearby pickup point on a map.
 
-## What's included
+**Stack:** Flutter (Material 3), Firebase Auth + Firestore (+ Storage, optional),
+Riverpod, GoRouter, flutter_map + OpenStreetMap, Google Fonts, flutter_animate.
 
-**Auth screens:** Splash, Welcome, Sign In, Sign Up, Forgot Password, Verify Email
-**Profile screens:** Profile, Edit Profile
+## User flow
 
-**Stack:** Firebase Auth + Firestore + Storage, Riverpod (StateNotifier), GoRouter (with auth-aware redirects), Material 3, Google Fonts, flutter_animate, responsive_framework.
+1. **Splash** — checks onboarding and login state, then routes on.
+2. **Onboarding** — 4 intro slides, shown only on first launch (saved with `shared_preferences`).
+3. **Login / Register / Forgot password** — email + password, plus Google, Apple and Facebook sign-in.
+4. **Main app** — bottom navigation with 5 tabs: Home, Search, Alerts, Profile, Settings.
+5. **Shopping** — Products → Product detail → Cart → Checkout → Order confirmation.
 
-## 1. Install dependencies
+Logged-out users are redirected to Login, and logged-in users are kept out of
+the auth screens. `/products` and `/cart` are reachable without logging in.
+
+## Features
+
+### Home
+Promo banner, category shortcuts (open the product list pre-filtered),
+"Best Selling" and "Recommended" sections.
+
+### Products
+- Search, category filter, sort (Popular, Latest, Best Sellers, Price)
+- Infinite scroll, with loading / empty / error (retry) states
+- Product detail: images, price and discount, stock status, size and quantity
+  pickers, description, category and brand chips, **Add to Cart**, **Buy Now**,
+  and **Find pickup near me**
+- Catalog is read from Firestore (`products`, `categories`), seeded from FakeStoreAPI
+
+### Cart & checkout
+- Fly-to-cart animation, "added to cart" sheet, cart badge
+- Change quantities, remove items, select all
+- Pricing: per-product discount, 8% tax, $4.99 shipping (free from $50)
+- Checkout: editable delivery address, voucher codes (`LAZADA10` = 10% off,
+  `SAVE5` = $5 off), payment method (Card, PayPal, Cash on Delivery)
+- Signed-in users' cart and orders are saved to Firestore under
+  `users/{uid}/cart` and `users/{uid}/orders`
+- Payment is UI only — no payment is processed
+
+### Pickup location map
+- OpenStreetMap map with GPS location and a re-center button
+- Place search with autocomplete (Nominatim)
+- Category chips that show nearby places within 5 km (Overpass)
+- Tap a marker for details and pick it as the pickup point
+- Uses free OSM services only, so no API key is needed
+
+### Profile
+Profile photo, edit name and email, account info, order / review / points
+stats, activity shortcuts, and log out.
+
+### Alerts
+Notification list with "Mark all read" and an empty state.
+
+### Settings
+Dark mode, notifications, language, change password, biometric login,
+active sessions, privacy, support and legal pages, log out.
+
+## Not finished yet
+
+- Notifications and active sessions use sample data.
+- Biometric and notification toggles are UI only.
+- The theme choice is not saved between restarts.
+- Some profile stats are placeholders, and Order history, Saved items and
+  My reviews show "coming soon".
+- Profile photos are not uploaded to Firebase Storage yet (Storage needs the Blaze plan).
+- Google, Apple and Facebook sign-in each need console setup before they work.
+
+## Getting started
 
 ```bash
 flutter pub get
+flutter run -d chrome   # or an Android emulator / device
 ```
 
-## 2. Connect your Firebase project (required)
+Firebase does not work on the Windows or Linux desktop builds, so use web,
+Android, iOS or macOS.
 
-`lib/firebase_options.dart` in this project is a **placeholder** — the app will not run against real data until you generate your own:
+The Firebase project is already connected (`lib/firebase_options.dart`). Before the
+app fully works, follow [SETUP.md](SETUP.md) to:
 
-```bash
-dart pub global activate flutterfire_cli
-flutterfire configure
-```
+1. Enable Email/Password sign-in in the Firebase console
+2. Seed the product catalog with `node tool/seed_firestore.js`
+3. (Optional) Enable Firebase Storage
+4. Set up each social sign-in provider you want
 
-Follow the prompts to select/create a Firebase project and platforms (Android, iOS, web). This overwrites `firebase_options.dart` with real values and downloads `google-services.json` / `GoogleService-Info.plist` automatically.
-
-In the Firebase Console, enable:
-- **Authentication** → Sign-in method → Email/Password, Google, Apple, Facebook, GitHub (as needed)
-- **Firestore Database** → start in production mode, then add rules (see below)
-- **Storage** → default bucket is fine
-
-### Suggested Firestore rules
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-    }
-  }
-}
-```
-
-## 3. Social sign-in setup (per provider)
-
-- **Google** — works out of the box on Android once SHA-1 is added in Firebase Console; iOS needs the reversed client ID added to `Info.plist` (flutterfire configure handles most of this).
-- **Apple** — requires enabling "Sign in with Apple" capability in Xcode and configuring your App ID in the Apple Developer portal.
-- **Facebook** — add your Facebook App ID/Client Token to `android/app/src/main/res/values/strings.xml` and `Info.plist` per the `flutter_facebook_auth` package docs.
-- **GitHub** — enabled directly in Firebase Console → Authentication → Sign-in method → GitHub (uses Firebase's OAuth provider flow, no extra SDK config needed).
-
-## 4. Run
-
-```bash
-flutter run
-```
+Security rules are in [firestore.rules](firestore.rules) and [storage.rules](storage.rules).
 
 ## Folder structure
 
 ```
 lib/
   core/
-    constants/        # app-wide constants
-    theme/             # colors, ThemeData, radii, shadows
-    utils/              # validators.dart
-  models/               # user_model.dart
-  services/             # auth_service, firestore_service, storage_service
-  providers/            # Riverpod providers/controllers
-  routes/                # app_router.dart (GoRouter)
-  screens/
-    splash/
-    welcome/
-    auth/
-      signin/
-      signup/
-      forgot_password/
-      verify_email/
-    profile/
-    edit_profile/
-  widgets/                # reusable UI components
+    constants/      # app and social-auth constants
+    services/       # auth_service.dart (Firebase Auth + social sign-in)
+    theme/          # colors and ThemeData
+    widgets/        # app shell (bottom nav) and shared UI components
+  features/
+    splash/  onboarding/  auth/
+    home/  search/  notifications/  profile/  settings/
+    products/       # catalog, product detail, Firestore/API services
+    cart/           # cart, checkout, order confirmation, Firestore sync
+    pickup_location/ # OSM map, search, nearby places
+  models/           # user_model.dart
+  providers/        # Riverpod providers (auth, cart, theme, nav, onboarding)
+  routes/           # app_router.dart (GoRouter)
   main.dart
-  firebase_options.dart  # <-- replace via flutterfire configure
+  firebase_options.dart
+tool/
+  seed_firestore.js # copies the FakeStoreAPI catalog into Firestore
 ```
-
-## Notes
-
-- The **profile completion percentage**, **account stats**, and **membership status** are all driven from the Firestore user document (`lib/models/user_model.dart`) — extend that model if you add more fields.
-- Theme toggle (dark/light) is in-memory via Riverpod; wire it to `shared_preferences` if you want it to persist across restarts.
-- Email verification polls every 4 seconds and auto-advances once the user clicks the link in their inbox — no manual "I've verified" button needed.
