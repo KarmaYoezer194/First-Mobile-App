@@ -6,6 +6,7 @@ import '../features/auth/forgot_password_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
 import '../features/cart/screens/cart_screen.dart';
+import '../features/debug/widget_gallery_page.dart';
 import '../features/notifications/notifications_page.dart';
 import '../features/onboarding/onboarding_page.dart';
 import '../features/pickup_location/pickup_location.dart';
@@ -47,6 +48,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // top of it) is a standalone API demo with no auth of its own, so
       // both stay reachable regardless of login state.
       if (isSplash || isOnboarding || isProducts || isCart) return null;
+      // Temporary widget gallery (debug builds only).
+      if (kDebugMode && path == '/_gallery') return null;
 
       if (!loggedIn && !isAuthRoute) return '/login';
       if (loggedIn && isAuthRoute) return '/home';
@@ -84,6 +87,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
       GoRoute(path: '/settings', builder: (context, state) => const SettingsPage()),
+
+      // TEMPORARY: shared-widget gallery, debug builds only.
+      if (kDebugMode)
+        GoRoute(path: '/_gallery', builder: (context, state) => const WidgetGalleryPage()),
 
       // Bottom-nav shell owns Home + the 4 other tabs internally.
       GoRoute(path: '/home', builder: (context, state) => const AppShell()),

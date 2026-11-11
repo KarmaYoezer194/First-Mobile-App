@@ -38,10 +38,12 @@ class SocialAuthButtons extends StatelessWidget {
           children: [
             const Expanded(child: Divider()),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceS),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: AppConstants.spaceS),
               child: Text(
                 dividerLabel,
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ),
             const Expanded(child: Divider()),
@@ -66,7 +68,8 @@ class SocialAuthButtons extends StatelessWidget {
         const SizedBox(height: AppConstants.spaceS),
         _SocialButton(
           label: 'Continue with Facebook',
-          leading: const Icon(Icons.facebook_rounded, size: 22, color: Color(0xFF1877F2)),
+          leading: const Icon(Icons.facebook_rounded,
+              size: 22, color: Color(0xFF1877F2)),
           busy: loadingProvider == SocialProvider.facebook,
           disabled: loadingProvider != null,
           onPressed: () => onPressed(SocialProvider.facebook),
@@ -124,7 +127,10 @@ class _GoogleGlyph extends StatelessWidget {
     return const Center(
       child: Text(
         'G',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF4285F4)),
+        style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF4285F4)),
       ),
     );
   }

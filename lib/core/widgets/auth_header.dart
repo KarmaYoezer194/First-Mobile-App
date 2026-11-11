@@ -48,11 +48,14 @@ class AuthHeader extends StatelessWidget {
           child: Icon(icon, size: 30, color: Colors.white),
         ),
         const SizedBox(height: AppConstants.spaceM),
-        Text(title, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
+        Text(title,
+            style: theme.textTheme.headlineMedium
+                ?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         Text(
           subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],
     );

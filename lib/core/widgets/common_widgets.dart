@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../constants/app_constants.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
+import 'cards.dart';
 import '../../providers/auth_provider.dart';
 
 /// Shared "Log out?" confirm dialog + sign-out flow — used from both the
@@ -18,8 +21,12 @@ Future<void> confirmLogout(BuildContext context, WidgetRef ref) async {
       title: const Text('Log out?'),
       content: const Text('You will need to sign in again to continue.'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Log out')),
+        TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel')),
+        FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Log out')),
       ],
     ),
   );
@@ -36,7 +43,7 @@ Future<void> confirmLogout(BuildContext context, WidgetRef ref) async {
   }
 }
 
-/// Section title row with an optional trailing "See all" action.
+/// Section title row (15 w700) with an optional gold action ("See more").
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
     super.key,
@@ -51,27 +58,45 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+    final palette = context.palette;
+    return SizedBox(
+      height: AppConstants.minTapTarget,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                overflow: TextOverflow.ellipsis,
+                style: AppFonts.sans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: palette.ink),
+              ),
+            ),
           ),
-        ),
-        if (actionLabel != null)
-          TextButton(
-            onPressed: onAction,
-            child: Text(actionLabel!),
-          ),
-      ],
+          if (actionLabel != null)
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(
+                foregroundColor: palette.gold,
+                minimumSize: const Size(
+                    AppConstants.minTapTarget, AppConstants.minTapTarget),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                textStyle:
+                    AppFonts.sans(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              child: Text(actionLabel!),
+            ),
+        ],
+      ),
     );
   }
 }
 
-/// Compact statistic card used on the Profile screen (e.g. "Orders: 12").
+/// Older stat-card API used by Profile. Renders a [StatTile].
 class StatCard extends StatelessWidget {
   const StatCard({
     super.key,
@@ -85,44 +110,13 @@ class StatCard extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppConstants.spaceM),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppConstants.radiusS),
-              ),
-              child: Icon(icon, size: 18, color: theme.colorScheme.primary),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: theme.textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      StatTile(icon: icon, value: value, label: label);
 }
 
-/// Standard row used throughout Settings: icon, title, trailing widget.
+/// Older settings-row API. Renders a [ListRow]-style row (icon well,
+/// title, subtitle, trailing). Passing the danger color as [iconColor]
+/// gives the destructive style.
 class SettingsTile extends StatelessWidget {
   const SettingsTile({
     super.key,
@@ -143,62 +137,67 @@ class SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListTile(
+    final destructive = iconColor != null &&
+        (iconColor == AppColors.danger ||
+            iconColor == Theme.of(context).colorScheme.error);
+    return ListRow(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
       onTap: onTap,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: AppConstants.spaceXS),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: (iconColor ?? theme.colorScheme.primary).withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(AppConstants.radiusS),
-        ),
-        child: Icon(icon, size: 20, color: iconColor ?? theme.colorScheme.primary),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
-      trailing: trailing ?? const Icon(Icons.chevron_right_rounded, size: 20),
+      destructive: destructive,
+      trailing: trailing,
     );
   }
 }
 
-/// Simple full-screen empty/placeholder state used by stub pages
-/// (Notifications, Search) so navigation can be demoed end-to-end.
+/// Full-screen empty/placeholder state: icon in a soft circle, serif
+/// title, muted message, optional action.
 class PlaceholderState extends StatelessWidget {
   const PlaceholderState({
     super.key,
     required this.icon,
     required this.title,
     required this.message,
+    this.action,
   });
 
   final IconData icon;
   final String title;
   final String message;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.palette;
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppConstants.spaceXL),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: theme.colorScheme.primary.withValues(alpha: 0.6)),
-            const SizedBox(height: 16),
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                  color: palette.surfaceSoft, shape: BoxShape.circle),
+              child: Icon(icon, size: 36, color: palette.ink),
+            ),
+            const SizedBox(height: 20),
             Text(title,
-                style:
-                    theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                textAlign: TextAlign.center,
+                style: AppFonts.serif(fontSize: 22, color: palette.ink)),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: AppFonts.sans(
+                  fontSize: 13, color: palette.inkMuted, height: 1.45),
             ),
+            if (action != null) ...[
+              const SizedBox(height: 24),
+              action!,
+            ],
           ],
         ),
       ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// Rounded, Material 3 styled text field with built-in password
-/// visibility toggle and validation message support.
-class CustomTextField extends StatefulWidget {
+import 'app_text_field.dart';
+
+/// Older text-field API, kept so existing forms keep compiling. Renders an
+/// [AppTextField] (label above the box, eye toggle for passwords).
+class CustomTextField extends StatelessWidget {
   const CustomTextField({
     super.key,
     required this.label,
@@ -27,38 +29,17 @@ class CustomTextField extends StatefulWidget {
   final void Function(String)? onFieldSubmitted;
 
   @override
-  State<CustomTextField> createState() => _CustomTextFieldState();
-}
-
-class _CustomTextFieldState extends State<CustomTextField> {
-  late bool _obscure = widget.obscureText;
-
-  @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: widget.controller,
-      obscureText: _obscure,
-      keyboardType: widget.keyboardType,
-      validator: widget.validator,
-      textInputAction: widget.textInputAction,
-      onFieldSubmitted: widget.onFieldSubmitted,
-      decoration: InputDecoration(
-        labelText: widget.label,
-        hintText: widget.hint,
-        prefixIcon:
-            widget.prefixIcon != null ? Icon(widget.prefixIcon, size: 20) : null,
-        suffixIcon: widget.obscureText
-            ? IconButton(
-                icon: Icon(
-                  _obscure
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  size: 20,
-                ),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              )
-            : null,
-      ),
+    return AppTextField(
+      label: label,
+      hint: hint,
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      icon: prefixIcon,
+      validator: validator,
+      textInputAction: textInputAction,
+      onSubmitted: onFieldSubmitted,
     );
   }
 }
