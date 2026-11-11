@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/circle_icon_button.dart';
@@ -406,7 +407,8 @@ class _PickupLocationScreenState extends ConsumerState<PickupLocationScreen> {
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: AppColors.surface.withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius:
+                                  BorderRadius.circular(AppConstants.radiusXS),
                             ),
                             child: Text('© OpenStreetMap contributors',
                                 style: AppFonts.sans(

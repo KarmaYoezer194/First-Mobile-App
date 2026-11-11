@@ -444,14 +444,15 @@ class _ProfileHeaderCard extends StatelessWidget {
                             children: [
                               avatar,
                               if (uploading)
-                                const ColoredBox(
-                                  color: Color(0x592B2420),
-                                  child: Center(
+                                ColoredBox(
+                                  color: AppColors.ink.withValues(alpha: 0.35),
+                                  child: const Center(
                                     child: SizedBox(
                                       width: 20,
                                       height: 20,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: Colors.white),
+                                          strokeWidth: 2,
+                                          color: AppColors.background),
                                     ),
                                   ),
                                 ),

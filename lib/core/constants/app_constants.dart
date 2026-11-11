@@ -33,11 +33,15 @@ class AppConstants {
   static const double categoryCircleSize = 58;
 
   // ---- Radii --------------------------------------------------------------
+  static const double radiusXS = 4; // tiny labels (map attribution)
+  static const double radiusTag = 6; // voucher code tag
   static const double radiusS = 8;
   static const double radiusIconWell = 10;
+  static const double radiusIconWellLarge = 12; // 40px wells (alerts)
   static const double radiusInput = 14;
   static const double radiusM = 16; // list cards, product image tile
   static const double radiusL = 20; // hero / dark cards
+  static const double radiusIconTile = 18; // 64px header tile (auth)
   static const double radiusProductCard = 22;
   static const double radiusSheet = 24;
   static const double radiusXL = 28; // onboarding panel, large sheets
@@ -63,11 +67,8 @@ class AppConstants {
   static const Duration staggerStep = Duration(milliseconds: 40);
   static const int staggerMaxItems = 8;
 
-  // Legacy durations, now mapped onto the motion tokens above.
-  static const Duration animMicro = animPress;
-  static const Duration animFast = animToggle;
-  static const Duration animMedium = animEntrance;
-  static const Duration animSlow = Duration(milliseconds: 800); // splash only
+  /// The splash screen's logo fade.
+  static const Duration animSlow = Duration(milliseconds: 800);
 
   /// One cycle of a looping skeleton loader.
   static const Duration animShimmer = Duration(milliseconds: 1100);

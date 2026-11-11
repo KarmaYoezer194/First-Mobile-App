@@ -94,7 +94,7 @@ class UserLocationMarkerPin extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.gold,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 3),
+            border: Border.all(color: AppColors.surface, width: 3),
             boxShadow: AppShadows.floating,
           ),
         ),

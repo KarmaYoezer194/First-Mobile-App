@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import 'cart_icon_anchor.dart';
 
 /// Plays a small copy of [imageUrl] lobbing in an arc from [start] to
@@ -13,7 +15,8 @@ import 'cart_icon_anchor.dart';
 /// This is purely a visual flourish laid on top of the real overlay — it
 /// doesn't touch cart state itself. Call it alongside (never instead of)
 /// the actual `ref.read(cartProvider.notifier).addProduct(...)` call.
-void flyToCart(BuildContext context, {required Offset start, required String imageUrl}) {
+void flyToCart(BuildContext context,
+    {required Offset start, required String imageUrl}) {
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
   if (overlay == null) return;
 
@@ -21,7 +24,8 @@ void flyToCart(BuildContext context, {required Offset start, required String ima
   // product grid without its own AppBar) — lob toward the top-right corner
   // instead of not animating at all.
   final end = CartIconAnchor.currentCenter() ??
-      Offset(MediaQuery.sizeOf(context).width - 32, MediaQuery.paddingOf(context).top + 32);
+      Offset(MediaQuery.sizeOf(context).width - 32,
+          MediaQuery.paddingOf(context).top + 32);
 
   late final OverlayEntry entry;
   entry = OverlayEntry(
@@ -52,7 +56,8 @@ class _FlyingItem extends StatefulWidget {
   State<_FlyingItem> createState() => _FlyingItemState();
 }
 
-class _FlyingItemState extends State<_FlyingItem> with SingleTickerProviderStateMixin {
+class _FlyingItemState extends State<_FlyingItem>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 550),
@@ -116,17 +121,14 @@ class _Thumbnail extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
-        ],
+        color: AppColors.tile,
+        border: Border.all(color: AppColors.surface, width: 2),
+        boxShadow: AppShadows.floating,
       ),
       clipBehavior: Clip.antiAlias,
       child: imageUrl.isEmpty
-          ? const ColoredBox(
-              color: Colors.white,
-              child: Icon(Icons.shopping_bag_outlined, size: 20),
-            )
+          ? const Icon(Icons.shopping_bag_outlined,
+              size: 20, color: AppColors.ink)
           : CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
     );
   }

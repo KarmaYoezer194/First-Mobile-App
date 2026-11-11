@@ -611,7 +611,7 @@ class _VoucherSection extends StatelessWidget {
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: palette.gold,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(AppConstants.radiusTag),
                     ),
                     child: Text(appliedCode!,
                         style: AppFonts.sans(

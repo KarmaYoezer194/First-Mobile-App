@@ -73,7 +73,7 @@ class SocialAuthButtons extends StatelessWidget {
                 SocialProvider.facebook,
                 'Facebook',
                 const Icon(Icons.facebook_rounded,
-                    size: 20, color: Color(0xFF1877F2))),
+                    size: 20, color: AppColors.brandFacebook)),
           ],
         ),
       ],

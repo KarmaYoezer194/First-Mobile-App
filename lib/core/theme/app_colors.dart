@@ -15,21 +15,26 @@ class AppColors {
   // ---- Light tokens -------------------------------------------------------
   static const Color background = Color(0xFFF7F2EA); // warm ivory page
   static const Color surface = Color(0xFFFFFFFF); // cards, inputs, nav, sheets
-  static const Color surfaceSoft = Color(0xFFF0E8DB); // icon wells, stepper buttons
+  static const Color surfaceSoft =
+      Color(0xFFF0E8DB); // icon wells, stepper buttons
   static const Color tile = Color(0xFFEEE7DC); // product image tile
   static const Color border = Color(0xFFECE4D8); // hairlines, dividers
   static const Color borderStrong = Color(0xFFDCCFBD); // outline buttons
-  static const Color switchTrackOff = Color(0xFFE2D8C9); // also secondary-button border
-  static const Color ink = Color(0xFF2B2420); // text, primary buttons, dark cards
+  static const Color switchTrackOff =
+      Color(0xFFE2D8C9); // also secondary-button border
+  static const Color ink =
+      Color(0xFF2B2420); // text, primary buttons, dark cards
   static const Color inkMuted = Color(0xFF6B6054); // secondary text
-  static const Color hint = Color(0xFFA89C8C); // placeholders, meta, section labels
+  static const Color hint =
+      Color(0xFFA89C8C); // placeholders, meta, section labels
   static const Color navInactive = Color(0xFFB3A696);
   static const Color gold = Color(0xFFC8902E); // the one accent
   static const Color goldLight = Color(0xFFE2B566); // gold on ink surfaces
   static const Color success = Color(0xFF5E7D5A);
   static const Color danger = Color(0xFFA2483A);
   static const Color dangerBg = Color(0xFFF6E3DC);
-  static const Color profileEmail = Color(0xFFBFB3A2); // muted text on ink cards
+  static const Color profileEmail =
+      Color(0xFFBFB3A2); // muted text on ink cards
 
   // ---- Dark tokens --------------------------------------------------------
   static const Color darkBackground = Color(0xFF1E1A17);
@@ -57,30 +62,9 @@ class AppColors {
     Color(0xFFF2DCCB),
   ];
 
-  // ---- Legacy names -------------------------------------------------------
-  // Kept so existing screens compile while they're restyled; each now
-  // points at a Warm Ivory value. Removed in the final consistency pass.
-  static const Color primary = ink;
-  static const Color primaryDark = darkText;
-  static const Color warning = gold;
-  static const Color lightBackground = background;
-  static const Color lightSurface = surface;
-  static const Color lightBorder = border;
-  static const Color lightTextPrimary = ink;
-  static const Color lightTextSecondary = inkMuted;
-  static const Color darkTextPrimary = darkText;
-  static const Color darkTextSecondary = darkTextMuted;
-
-  /// Legacy "gradients" are now flat pairs, since the new design has no
-  /// gradients on UI surfaces.
-  static const List<Color> primaryGradient = [ink, ink];
-  static const List<Color> bannerGradient = [ink, ink];
-  static const List<List<Color>> featuredGradients = [
-    [ink, ink],
-    [ink, ink],
-    [ink, ink],
-    [ink, ink],
-  ];
+  // ---- Brand logos ------------------------------------------------------
+  /// Facebook's logo blue, for the "Continue with Facebook" button only.
+  static const Color brandFacebook = Color(0xFF1877F2);
 }
 
 /// Brightness-aware tokens that `ColorScheme` has no slot for (tile, hint,

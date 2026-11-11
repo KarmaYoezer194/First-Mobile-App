@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../constants/app_constants.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
-import 'cards.dart';
 import '../../providers/auth_provider.dart';
 
 /// Shared "Log out?" confirm dialog + sign-out flow — used from both the
@@ -92,61 +91,6 @@ class SectionHeader extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-/// Older stat-card API used by Profile. Renders a [StatTile].
-class StatCard extends StatelessWidget {
-  const StatCard({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) =>
-      StatTile(icon: icon, value: value, label: label);
-}
-
-/// Older settings-row API. Renders a [ListRow]-style row (icon well,
-/// title, subtitle, trailing). Passing the danger color as [iconColor]
-/// gives the destructive style.
-class SettingsTile extends StatelessWidget {
-  const SettingsTile({
-    super.key,
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    this.onTap,
-    this.iconColor,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-  final Color? iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final destructive = iconColor != null &&
-        (iconColor == AppColors.danger ||
-            iconColor == Theme.of(context).colorScheme.error);
-    return ListRow(
-      icon: icon,
-      title: title,
-      subtitle: subtitle,
-      onTap: onTap,
-      destructive: destructive,
-      trailing: trailing,
     );
   }
 }

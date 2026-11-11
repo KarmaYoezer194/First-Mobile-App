@@ -47,10 +47,7 @@ class PlaceDetailsPanel extends StatelessWidget {
         color: palette.surface,
         borderRadius: const BorderRadius.vertical(
             top: Radius.circular(AppConstants.radiusSheet)),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x1A2B2420), blurRadius: 16, offset: Offset(0, -2)),
-        ],
+        boxShadow: AppShadows.sheet,
       ),
       child: SafeArea(
         top: false,
@@ -67,7 +64,8 @@ class PlaceDetailsPanel extends StatelessWidget {
                   height: 4,
                   decoration: BoxDecoration(
                     color: palette.borderStrong,
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius:
+                        BorderRadius.circular(AppConstants.radiusPill),
                   ),
                 ),
               ),

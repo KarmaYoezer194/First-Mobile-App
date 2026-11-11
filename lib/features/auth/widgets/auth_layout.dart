@@ -72,7 +72,7 @@ class AuthLayout extends StatelessWidget {
                             height: 64,
                             decoration: BoxDecoration(
                               color: palette.surfaceSoft,
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(AppConstants.radiusIconTile),
                             ),
                             child:
                                 Icon(headerIcon, size: 28, color: palette.ink),

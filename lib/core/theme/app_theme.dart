@@ -15,6 +15,11 @@ class AppShadows {
   static const List<BoxShadow> floating = [
     BoxShadow(color: Color(0x242B2420), blurRadius: 3, offset: Offset(0, 1)),
   ];
+
+  /// A panel sitting on top of the map (pickup place panel).
+  static const List<BoxShadow> sheet = [
+    BoxShadow(color: Color(0x1A2B2420), blurRadius: 16, offset: Offset(0, -2)),
+  ];
 }
 
 /// Font helpers for one-off styles the text theme doesn't cover
@@ -124,21 +129,21 @@ class AppTheme {
       headlineLarge: serif(base.headlineLarge, 28),
       headlineMedium: serif(base.headlineMedium, 26),
       headlineSmall: serif(base.headlineSmall, 22),
-      titleLarge: base.titleLarge
-          ?.copyWith(fontSize: 18, fontWeight: FontWeight.w700),
-      titleMedium: base.titleMedium
-          ?.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
-      titleSmall: base.titleSmall
-          ?.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+      titleLarge:
+          base.titleLarge?.copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+      titleMedium:
+          base.titleMedium?.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+      titleSmall:
+          base.titleSmall?.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
       bodyLarge: base.bodyLarge?.copyWith(fontSize: 14),
       bodyMedium: base.bodyMedium?.copyWith(fontSize: 13),
       bodySmall: base.bodySmall?.copyWith(fontSize: 11, color: p.hint),
-      labelLarge: base.labelLarge
-          ?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
-      labelMedium: base.labelMedium
-          ?.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
-      labelSmall: base.labelSmall
-          ?.copyWith(fontSize: 10, fontWeight: FontWeight.w600),
+      labelLarge:
+          base.labelLarge?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+      labelMedium:
+          base.labelMedium?.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+      labelSmall:
+          base.labelSmall?.copyWith(fontSize: 10, fontWeight: FontWeight.w600),
     );
   }
 
@@ -156,8 +161,8 @@ class AppTheme {
           borderSide: BorderSide(color: c, width: w),
         );
 
-    final buttonText = GoogleFonts.inter(
-        fontSize: 14, fontWeight: FontWeight.w700);
+    final buttonText =
+        GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700);
     const buttonPadding = EdgeInsets.symmetric(horizontal: 20, vertical: 15);
 
     return ThemeData(
@@ -299,8 +304,7 @@ class AppTheme {
         thumbColor: const WidgetStatePropertyAll(Colors.white),
         trackColor: WidgetStateProperty.resolveWith((states) =>
             states.contains(WidgetState.selected) ? p.gold : p.switchTrackOff),
-        trackOutlineColor:
-            const WidgetStatePropertyAll(Colors.transparent),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) =>
@@ -366,8 +370,7 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
         backgroundColor: isDark ? AppColors.background : AppColors.ink,
         contentTextStyle: GoogleFonts.inter(
-            fontSize: 13,
-            color: isDark ? AppColors.ink : AppColors.background),
+            fontSize: 13, color: isDark ? AppColors.ink : AppColors.background),
         actionTextColor: AppColors.goldLight,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.radiusInput)),
@@ -389,8 +392,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(AppConstants.radiusS),
         ),
         textStyle: GoogleFonts.inter(
-            fontSize: 11,
-            color: isDark ? AppColors.ink : AppColors.background),
+            fontSize: 11, color: isDark ? AppColors.ink : AppColors.background),
       ),
     );
   }
