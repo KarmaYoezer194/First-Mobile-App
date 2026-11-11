@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/auth_service.dart' show AuthException;
+import 'package:go_router/go_router.dart';
+import '../../core/widgets/circle_icon_button.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../providers/auth_provider.dart';
 
@@ -232,7 +234,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final email = user?.email ?? '—';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          // Settings moved out of the bottom nav into Profile.
+          Padding(
+            padding: const EdgeInsets.only(right: AppConstants.spaceS),
+            child: CircleIconButton(
+              icon: Icons.settings_outlined,
+              tooltip: 'Settings',
+              onPressed: () => context.push('/settings'),
+            ),
+          ),
+        ],
+      ),
       body: ListView(
         padding:
             const EdgeInsets.all(AppConstants.spaceL).copyWith(bottom: AppConstants.listBottomInset),
@@ -392,6 +407,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   onTap: () => _comingSoon(context, 'Reviews'),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: AppConstants.spaceXL),
+          const SectionHeader(title: 'More'),
+          const SizedBox(height: AppConstants.spaceM),
+          Card(
+            child: SettingsTile(
+              icon: Icons.settings_outlined,
+              title: 'Settings',
+              onTap: () => context.push('/settings'),
             ),
           ),
           const SizedBox(height: AppConstants.spaceXL),

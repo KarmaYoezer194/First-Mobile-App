@@ -1,86 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/common_widgets.dart';
+import '../../providers/notifications_provider.dart';
 
-class _NotificationItem {
-  final String id;
-  final String title;
-  final String message;
-  final IconData icon;
-  final String group;
-  bool read;
-
-  _NotificationItem({
-    required this.id,
-    required this.title,
-    required this.message,
-    required this.icon,
-    required this.group,
-    required this.read,
-  });
-}
-
-class NotificationsPage extends StatefulWidget {
+class NotificationsPage extends ConsumerWidget {
   const NotificationsPage({super.key});
 
   @override
-  State<NotificationsPage> createState() => _NotificationsPageState();
-}
-
-class _NotificationsPageState extends State<NotificationsPage> {
-  final _items = [
-    _NotificationItem(
-      id: 'welcome',
-      title: 'Welcome aboard!',
-      message: 'Thanks for joining. Explore the app to get started.',
-      icon: Icons.celebration_rounded,
-      group: 'Today',
-      read: false,
-    ),
-    _NotificationItem(
-      id: 'security',
-      title: 'Security alert',
-      message: 'Your password was changed successfully.',
-      icon: Icons.shield_rounded,
-      group: 'Today',
-      read: false,
-    ),
-    _NotificationItem(
-      id: 'weekly',
-      title: 'Weekly summary',
-      message: 'Here is what happened this week.',
-      icon: Icons.insights_rounded,
-      group: 'Earlier',
-      read: true,
-    ),
-  ];
-
-  bool get _hasUnread => _items.any((i) => !i.read);
-
-  void _markAllRead() {
-    setState(() {
-      for (final item in _items) {
-        item.read = true;
-      }
-    });
-  }
-
-  void _markRead(_NotificationItem item) {
-    if (item.read) return;
-    setState(() => item.read = true);
-  }
-
-  void _dismiss(_NotificationItem item) {
-    setState(() => _items.remove(item));
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final groups = <String, List<_NotificationItem>>{};
-    for (final item in _items) {
+    final items = ref.watch(notificationsProvider);
+    final hasUnread = ref.watch(hasUnreadNotificationsProvider);
+    final notifier = ref.read(notificationsProvider.notifier);
+    final groups = <String, List<AppNotification>>{};
+    for (final item in items) {
       groups.putIfAbsent(item.group, () => []).add(item);
     }
 
@@ -89,12 +25,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
         title: const Text('Notifications'),
         actions: [
           TextButton(
-            onPressed: _hasUnread ? _markAllRead : null,
+            onPressed: hasUnread ? notifier.markAllRead : null,
             child: const Text('Mark all read'),
           ),
         ],
       ),
-      body: _items.isEmpty
+      body: items.isEmpty
           ? const PlaceholderState(
               icon: Icons.notifications_off_outlined,
               title: "You're all caught up",
@@ -118,8 +54,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     _NotificationTile(
                       item: item,
                       index: index,
-                      onTap: () => _markRead(item),
-                      onDismissed: () => _dismiss(item),
+                      onTap: () => notifier.markRead(item.id),
+                      onDismissed: () => notifier.dismiss(item.id),
                     ),
                     const SizedBox(height: AppConstants.spaceSM),
                   ],
@@ -132,7 +68,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 }
 
 class _NotificationTile extends StatelessWidget {
-  final _NotificationItem item;
+  final AppNotification item;
   final int index;
   final VoidCallback onTap;
   final VoidCallback onDismissed;

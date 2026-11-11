@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
-import '../../providers/cart_provider.dart';
 import '../pickup_location/pickup_location.dart';
 import '../products/widgets/product_browser.dart';
 
@@ -12,10 +11,6 @@ class SearchPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // No AppBar to host a cart icon here, so a small FAB gives this tab
-    // the same quick cart access the other product-browsing screens get
-    // from their AppBar's CartBadge.
-    final cartCount = ref.watch(cartProvider.select((s) => s.totalQuantity));
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -52,15 +47,6 @@ class SearchPage extends ConsumerWidget {
             // chips, and paginated grid — embedded directly in the tab.
             const Expanded(child: ProductBrowser()),
           ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Cart',
-        onPressed: () => context.push('/cart'),
-        child: Badge(
-          label: Text('$cartCount'),
-          isLabelVisible: cartCount > 0,
-          child: const Icon(Icons.shopping_cart_rounded),
         ),
       ),
     );

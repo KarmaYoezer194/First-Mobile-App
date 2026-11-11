@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../constants/app_constants.dart';
 import '../theme/app_colors.dart';
@@ -107,7 +108,16 @@ class _NavButton extends StatelessWidget {
                   Positioned(
                     top: -6,
                     right: -10,
-                    child: CountBadge(count: item.badgeCount),
+                    // Bumps whenever the count changes, like the old
+                    // cart icon did.
+                    child: CountBadge(count: item.badgeCount)
+                        .animate(key: ValueKey(item.badgeCount))
+                        .scaleXY(
+                          begin: 1.35,
+                          end: 1,
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOut,
+                        ),
                   ),
               ],
             ),

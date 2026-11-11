@@ -202,7 +202,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             borderRadius: BorderRadius.circular(AppConstants.radiusL),
             child: InkWell(
               borderRadius: BorderRadius.circular(AppConstants.radiusL),
-              onTap: () => context.push('/profile'),
+              // Settings is opened from Profile, so going "to the profile"
+              // just means going back to it.
+              onTap: () => context.canPop()
+                  ? context.pop()
+                  : context.push('/profile'),
               child: Container(
                 padding: const EdgeInsets.all(AppConstants.spaceM),
                 decoration: BoxDecoration(

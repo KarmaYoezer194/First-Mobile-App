@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/circle_icon_button.dart';
 import '../../core/widgets/common_widgets.dart';
-import '../cart/widgets/cart_badge.dart';
+import '../../providers/nav_provider.dart';
+import '../../providers/notifications_provider.dart';
 import '../products/models/product.dart';
 import '../products/screens/product_detail_screen.dart';
 import '../products/screens/sorted_products_screen.dart';
@@ -92,7 +94,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                 .copyWith(top: AppConstants.spaceM, bottom: AppConstants.listBottomInset),
             children: [
               _Header(
-                onSearchTap: () => context.push('/search'),
+                onSearchTap: () =>
+                    ref.read(bottomNavIndexProvider.notifier).state = 1,
               ),
               const SizedBox(height: AppConstants.spaceL),
               const _PromoBanner(),
@@ -232,10 +235,14 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        Material(
-          color: theme.colorScheme.surface,
-          shape: const CircleBorder(),
-          child: const CartBadge(),
+        // Alerts moved out of the bottom nav into this bell.
+        Consumer(
+          builder: (context, ref, _) => CircleIconButton(
+            icon: Icons.notifications_none_rounded,
+            tooltip: 'Alerts',
+            showDot: ref.watch(hasUnreadNotificationsProvider),
+            onPressed: () => context.push('/notifications'),
+          ),
         ),
       ],
     );

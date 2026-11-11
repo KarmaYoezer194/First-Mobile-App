@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/constants/app_constants.dart';
 import '../core/widgets/app_shell.dart';
 import '../features/auth/forgot_password_page.dart';
 import '../features/auth/login_page.dart';
@@ -24,6 +26,29 @@ class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(Ref ref) {
     ref.listen(authNotifierProvider, (_, __) => notifyListeners());
   }
+}
+
+/// Every route uses the same transition: a quick fade with a slight slide
+/// in from the right ([AppConstants.animPage]).
+CustomTransitionPage<void> _page(GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: AppConstants.animPage,
+    reverseTransitionDuration: AppConstants.animPage,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved =
+          CurvedAnimation(parent: animation, curve: AppConstants.animCurve);
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween(begin: const Offset(0.06, 0), end: Offset.zero)
+              .animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -56,44 +81,74 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
-      GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingPage()),
-      GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
-      GoRoute(path: '/register', builder: (context, state) => const RegisterPage()),
+      GoRoute(
+          path: '/splash',
+          pageBuilder: (context, state) => _page(state, const SplashPage())),
+      GoRoute(
+          path: '/onboarding',
+          pageBuilder: (context, state) =>
+              _page(state, const OnboardingPage())),
+      GoRoute(
+          path: '/login',
+          pageBuilder: (context, state) => _page(state, const LoginPage())),
+      GoRoute(
+          path: '/register',
+          pageBuilder: (context, state) => _page(state, const RegisterPage())),
       GoRoute(
           path: '/forgot-password',
-          builder: (context, state) => const ForgotPasswordPage()),
+          pageBuilder: (context, state) =>
+              _page(state, const ForgotPasswordPage())),
 
       // Standalone (non-tab) routes some pages push to.
-      GoRoute(path: '/search', builder: (context, state) => const SearchPage()),
+      GoRoute(
+          path: '/search',
+          pageBuilder: (context, state) => _page(state, const SearchPage())),
       // `extra` carries the optional PlaceCategory to preselect (e.g. from a
       // product's "Find pickup near me" tile); push with
       // `context.push<PickupPoint>('/pickup-location', extra: category)` to
       // get a typed result back, same as the old imperative Navigator.push.
       GoRoute(
         path: '/pickup-location',
-        builder: (context, state) => PickupLocationScreen(
-          initialCategory: state.extra as PlaceCategory?,
-        ),
+        pageBuilder: (context, state) => _page(
+            state,
+            PickupLocationScreen(
+              initialCategory: state.extra as PlaceCategory?,
+            )),
       ),
-      GoRoute(path: '/notifications', builder: (context, state) => const NotificationsPage()),
-      GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
+      GoRoute(
+          path: '/notifications',
+          pageBuilder: (context, state) =>
+              _page(state, const NotificationsPage())),
+      GoRoute(
+          path: '/profile',
+          pageBuilder: (context, state) => _page(state, const ProfilePage())),
       // `extra` optionally carries a category slug to preselect — e.g. Home's
       // category pills deep-linking straight into "electronics" — with
       // `context.push('/products', extra: slug)`.
       GoRoute(
         path: '/products',
-        builder: (context, state) => ProductScreen(initialCategorySlug: state.extra as String?),
+        pageBuilder: (context, state) => _page(
+            state, ProductScreen(initialCategorySlug: state.extra as String?)),
       ),
-      GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
-      GoRoute(path: '/settings', builder: (context, state) => const SettingsPage()),
+      GoRoute(
+          path: '/cart',
+          pageBuilder: (context, state) => _page(state, const CartScreen())),
+      GoRoute(
+          path: '/settings',
+          pageBuilder: (context, state) => _page(state, const SettingsPage())),
 
       // TEMPORARY: shared-widget gallery, debug builds only.
       if (kDebugMode)
-        GoRoute(path: '/_gallery', builder: (context, state) => const WidgetGalleryPage()),
+        GoRoute(
+            path: '/_gallery',
+            pageBuilder: (context, state) =>
+                _page(state, const WidgetGalleryPage())),
 
-      // Bottom-nav shell owns Home + the 4 other tabs internally.
-      GoRoute(path: '/home', builder: (context, state) => const AppShell()),
+      // Bottom-nav shell: Home, Search, Cart and Profile tabs. Alerts
+      // and Settings are the pushed routes above.
+      GoRoute(
+          path: '/home',
+          pageBuilder: (context, state) => _page(state, const AppShell())),
     ],
   );
 });
