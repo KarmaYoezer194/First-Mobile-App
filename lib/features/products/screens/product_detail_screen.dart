@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/cart_provider.dart';
+import '../../../providers/wishlist_provider.dart';
 import '../../cart/models/cart_item.dart';
 import '../../cart/models/pricing_summary.dart';
 import '../../cart/screens/checkout_screen.dart';
@@ -38,9 +39,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   late Future<Product> _future;
   int _quantity = 1;
-  // Local-only wishlist toggle — same as Home's Best Selling cards (see
-  // HomeProductCard's doc comment); no wishlist backend to persist to yet.
-  bool _isFavorite = false;
 
   @override
   void initState() {
@@ -129,8 +127,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           if (product == null) return const SizedBox.shrink();
           return _AddToCartBar(
             product: product,
-            isFavorite: _isFavorite,
-            onToggleFavorite: () => setState(() => _isFavorite = !_isFavorite),
+            // Shared in-memory wishlist, so the heart matches Home/Search.
+            isFavorite: ref.watch(wishlistProvider).contains(product.id),
+            onToggleFavorite: () => ref.read(wishlistProvider.notifier).toggle(product.id),
             onAddToCart: (start) => _addToCart(product, start),
             onBuyNow: () => _buyNow(product),
           );

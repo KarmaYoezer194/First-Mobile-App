@@ -2,39 +2,60 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/cards.dart';
+import '../../../core/widgets/common_widgets.dart';
+import '../../../core/widgets/pressable.dart';
+import '../../../core/widgets/primary_button.dart';
+import 'product_tile.dart';
 
-/// Shimmering placeholder grid shown while the first page of products is
-/// loading — reads as "content is on its way" instead of a blank spinner,
-/// and roughly previews the real grid's shape.
+/// Placeholder grid shown while the first page of products loads:
+/// tile-coloured rounded blocks in the shape of the product cards, with a
+/// soft shimmer.
 class ProductGridSkeleton extends StatelessWidget {
-  const ProductGridSkeleton({super.key, this.itemCount = 6});
+  const ProductGridSkeleton(
+      {super.key, this.itemCount = 6, this.shrinkWrap = false});
 
   final int itemCount;
 
+  /// For use inside another scroll view (e.g. Home's list).
+  final bool shrinkWrap;
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final base = theme.colorScheme.surfaceContainerHighest;
-
+    final palette = context.palette;
     return GridView.builder(
-      padding: const EdgeInsets.all(AppConstants.spaceSM),
+      shrinkWrap: shrinkWrap,
+      padding: shrinkWrap
+          ? EdgeInsets.zero
+          : const EdgeInsets.fromLTRB(
+              AppConstants.pagePadding, 4, AppConstants.pagePadding, 0),
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: AppConstants.spaceSM,
-        crossAxisSpacing: AppConstants.spaceSM,
-        childAspectRatio: 0.62,
-      ),
+      gridDelegate: const ProductGridDelegate(),
       itemCount: itemCount,
       itemBuilder: (context, index) {
         return Container(
-          decoration:
-              BoxDecoration(color: base, borderRadius: BorderRadius.circular(AppConstants.radiusM)),
-        )
-            .animate(onPlay: (c) => c.repeat())
-            .shimmer(
-                duration: AppConstants.animShimmer,
-                color: theme.colorScheme.surface.withValues(alpha: 0.6));
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+          decoration: BoxDecoration(
+            color: palette.surface,
+            borderRadius: BorderRadius.circular(AppConstants.radiusProductCard),
+            border: Border.all(color: palette.border),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(aspectRatio: 1, child: SkeletonBlock()),
+              SizedBox(height: 12),
+              SkeletonBlock(height: 12, width: 110, radius: 6),
+              SizedBox(height: 10),
+              SkeletonBlock(height: 12, width: 70, radius: 6),
+              Spacer(),
+              SkeletonBlock(height: 34, radius: AppConstants.radiusPill),
+            ],
+          ),
+        ).animate(onPlay: (c) => c.repeat()).shimmer(
+            duration: AppConstants.animShimmer,
+            color: palette.surface.withValues(alpha: 0.5));
       },
     );
   }
@@ -42,40 +63,25 @@ class ProductGridSkeleton extends StatelessWidget {
 
 /// Standard "the request failed" state: icon, message, and a Retry button.
 class ProductErrorView extends StatelessWidget {
-  const ProductErrorView({super.key, required this.message, required this.onRetry});
+  const ProductErrorView(
+      {super.key, required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppConstants.spaceL),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off_rounded, size: 52, color: theme.colorScheme.error)
-                .animate()
-                .scale(
-                  begin: const Offset(0.6, 0.6),
-                  end: const Offset(1, 1),
-                  duration: AppConstants.animMedium,
-                  curve: Curves.easeOutBack,
-                ),
-            const SizedBox(height: AppConstants.spaceSM),
-            Text(message, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: AppConstants.spaceM),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-            ),
-          ],
-        ).animate().fadeIn(duration: AppConstants.animMedium),
+    return PlaceholderState(
+      icon: Icons.cloud_off_rounded,
+      title: "Couldn't load products",
+      message: message,
+      action: PrimaryButton(
+        label: 'Retry',
+        icon: Icons.refresh_rounded,
+        expand: false,
+        onPressed: onRetry,
       ),
-    );
+    ).entrance();
   }
 }
 
@@ -92,19 +98,10 @@ class ProductEmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppConstants.spaceL),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 52, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: AppConstants.spaceSM),
-            Text(message, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
-          ],
-        ).animate().fadeIn(duration: AppConstants.animMedium).slideY(begin: 0.06, end: 0),
-      ),
-    );
+    return PlaceholderState(
+      icon: icon,
+      title: 'Nothing here yet',
+      message: message,
+    ).entrance();
   }
 }

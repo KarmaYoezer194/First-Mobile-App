@@ -48,10 +48,11 @@ class CategoryCircle extends StatelessWidget {
                 const SizedBox(height: 7),
                 Text(
                   label,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: AppFonts.sans(fontSize: 11, color: palette.inkMuted),
+                  style: AppFonts.sans(
+                      fontSize: 11, color: palette.inkMuted, height: 1.25),
                 ),
               ],
             ),

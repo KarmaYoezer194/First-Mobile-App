@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../services/firestore_product_service.dart';
 import '../services/product_api_service.dart' show ApiException;
-import '../widgets/product_card.dart';
 import '../widgets/product_state_views.dart';
-import 'product_detail_screen.dart';
+import '../widgets/product_tile.dart';
 
 /// A single-purpose, paginated product grid for a fixed sort order — e.g.
 /// "Popular" (highest rated) or "New Arrivals" (most recently added). No
@@ -38,16 +37,6 @@ class _SortedProductsScreenState extends State<SortedProductsScreen> {
   bool _hasMore = true;
   String? _error;
   String? _paginationError;
-
-  // Local-only wishlist toggles — see HomeProductCard's doc comment on the
-  // same pattern; no wishlist backend to persist to yet.
-  final Set<int> _favoriteIds = {};
-
-  void _toggleFavorite(int productId) {
-    setState(() {
-      if (!_favoriteIds.remove(productId)) _favoriteIds.add(productId);
-    });
-  }
 
   @override
   void initState() {
@@ -97,7 +86,8 @@ class _SortedProductsScreenState extends State<SortedProductsScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _products = reset ? response.products : [..._products, ...response.products];
+        _products =
+            reset ? response.products : [..._products, ...response.products];
         _hasMore = response.products.isNotEmpty && !response.isFullyLoaded;
         _isLoading = false;
         _isLoadingMore = false;
@@ -130,7 +120,8 @@ class _SortedProductsScreenState extends State<SortedProductsScreen> {
     }
 
     if (_error != null && _products.isEmpty) {
-      return ProductErrorView(message: _error!, onRetry: () => _loadPage(reset: true));
+      return ProductErrorView(
+          message: _error!, onRetry: () => _loadPage(reset: true));
     }
 
     if (_products.isEmpty) {
@@ -143,27 +134,18 @@ class _SortedProductsScreenState extends State<SortedProductsScreen> {
         controller: _scrollController,
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
             sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.62,
+              gridDelegate: ProductGridDelegate(
+                textScale: MediaQuery.textScalerOf(context).scale(1),
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final product = _products[index];
-                  return ProductCard(
+                  return ProductTile(
                     product: product,
+                    tag: shortCategoryLabel(product.category),
                     index: index,
-                    isFavorite: _favoriteIds.contains(product.id),
-                    onToggleFavorite: () => _toggleFavorite(product.id),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ProductDetailScreen(productId: product.id),
-                      ),
-                    ),
                   );
                 },
                 childCount: _products.length,

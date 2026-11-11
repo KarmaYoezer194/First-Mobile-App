@@ -2,16 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:responsive_framework/responsive_framework.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/widgets.dart';
+import '../../../providers/nav_provider.dart';
 import '../core/category_icons.dart';
 import '../models/category.dart';
 import '../models/product.dart';
-import '../screens/product_detail_screen.dart';
 import '../services/firestore_product_service.dart';
 import '../services/product_api_service.dart' show ApiException;
-import 'product_card.dart';
 import 'product_state_views.dart';
+import 'product_tile.dart';
 
 /// Sentinel category slug for "show every product, unfiltered".
 const String _kAllCategorySlug = 'all';
@@ -32,24 +37,33 @@ extension on _ProductSort {
 }
 
 /// Search, category filter, sort, and an infinitely-paginated product grid,
-/// with every loading/empty/error state the assignment calls for.
+/// with loading / empty / error states.
 ///
-/// This is the body-only version — no [Scaffold]/[AppBar] — so it can be
-/// embedded inside any page (the dedicated [ProductScreen] route, or the
-/// Search tab) as well as used standalone.
-class ProductBrowser extends StatefulWidget {
-  const ProductBrowser({super.key, this.initialCategorySlug});
+/// Body-only (no [Scaffold]/[AppBar]) so it can be embedded in the Search
+/// tab or the standalone `/products` page.
+class ProductBrowser extends ConsumerStatefulWidget {
+  const ProductBrowser({
+    super.key,
+    this.initialCategorySlug,
+    this.onCamera,
+    this.countRowTrailing,
+  });
 
-  /// Pre-selects a category chip on first build — e.g. Home's category
-  /// pills deep-linking straight into "electronics" instead of landing on
-  /// the unfiltered "All" view. Defaults to "All" when omitted.
+  /// Pre-selects a category chip on first build. Defaults to "All".
   final String? initialCategorySlug;
 
+  /// Shows a camera button inside the search field when set.
+  final VoidCallback? onCamera;
+
+  /// Shown at the right of the "N products" row (Search's "Pickup near
+  /// me" pill).
+  final Widget? countRowTrailing;
+
   @override
-  State<ProductBrowser> createState() => _ProductBrowserState();
+  ConsumerState<ProductBrowser> createState() => _ProductBrowserState();
 }
 
-class _ProductBrowserState extends State<ProductBrowser> {
+class _ProductBrowserState extends ConsumerState<ProductBrowser> {
   final FirestoreProductService _service = FirestoreProductService();
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -60,6 +74,7 @@ class _ProductBrowserState extends State<ProductBrowser> {
   int _requestId = 0;
 
   List<Product> _products = [];
+  int? _total;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -68,7 +83,8 @@ class _ProductBrowserState extends State<ProductBrowser> {
 
   List<Category> _categories = [];
   bool _categoriesLoading = true;
-  late String _selectedCategorySlug = widget.initialCategorySlug ?? _kAllCategorySlug;
+  late String _selectedCategorySlug =
+      widget.initialCategorySlug ?? _kAllCategorySlug;
 
   String _activeQuery = '';
 
@@ -77,11 +93,6 @@ class _ProductBrowserState extends State<ProductBrowser> {
   // tab again flips cheapest-first <-> priciest-first instead of doing
   // nothing on a re-tap.
   bool _priceDescending = false;
-
-  // Local-only wishlist toggles — see HomeProductCard's doc comment on the
-  // same pattern; no wishlist backend to persist to yet, and kept separate
-  // from Home's own set since this is a different browsing surface.
-  final Set<int> _favoriteIds = {};
 
   @override
   void initState() {
@@ -150,7 +161,9 @@ class _ProductBrowserState extends State<ProductBrowser> {
       if (!mounted || myRequestId != _requestId) return; // stale, discard
 
       setState(() {
-        _products = reset ? response.products : [..._products, ...response.products];
+        _products =
+            reset ? response.products : [..._products, ...response.products];
+        _total = response.total;
         _hasMore = response.products.isNotEmpty && !response.isFullyLoaded;
         _isLoading = false;
         _isLoadingMore = false;
@@ -181,7 +194,8 @@ class _ProductBrowserState extends State<ProductBrowser> {
   Future<ProductListResponse> _fetch({required int skip}) {
     final (sortBy, order) = _sortParams;
     if (_activeQuery.isNotEmpty) {
-      return _service.searchProducts(_activeQuery, skip: skip, sortBy: sortBy, order: order);
+      return _service.searchProducts(_activeQuery,
+          skip: skip, sortBy: sortBy, order: order);
     }
     if (_selectedCategorySlug != _kAllCategorySlug) {
       return _service.getProductsByCategory(
@@ -202,6 +216,11 @@ class _ProductBrowserState extends State<ProductBrowser> {
       setState(() => _activeQuery = query);
       _loadPage(reset: true);
     });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    _onSearchChanged('');
   }
 
   void _onCategorySelected(String slug) {
@@ -228,64 +247,151 @@ class _ProductBrowserState extends State<ProductBrowser> {
     _loadPage(reset: true);
   }
 
-  void _toggleFavorite(int productId) {
-    setState(() {
-      if (!_favoriteIds.remove(productId)) _favoriteIds.add(productId);
-    });
-  }
-
   Future<void> _openFilterSheet() async {
     final selected = await showModalBottomSheet<_ProductSort>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppConstants.radiusL)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(AppConstants.spaceM),
-              child: Text('Sort & Filter', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+      showDragHandle: true,
+      builder: (ctx) {
+        final palette = ctx.palette;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppConstants.pagePadding, 0,
+                AppConstants.pagePadding, AppConstants.spaceM),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Sort & Filter',
+                    style: AppFonts.serif(fontSize: 20, color: palette.ink)),
+                const SizedBox(height: 14),
+                const SectionLabel('Sort by'),
+                const SizedBox(height: 8),
+                ListRowCard(children: [
+                  for (final option in _ProductSort.values)
+                    ListRow(
+                      icon: switch (option) {
+                        _ProductSort.popular =>
+                          Icons.local_fire_department_outlined,
+                        _ProductSort.latest => Icons.schedule_rounded,
+                        _ProductSort.bestSellers => Icons.star_outline_rounded,
+                        _ProductSort.price => Icons.sell_outlined,
+                      },
+                      title: option.label,
+                      trailing: option == _sort
+                          ? Icon(Icons.check_rounded,
+                              size: 20, color: palette.ink)
+                          : const SizedBox.shrink(),
+                      onTap: () => Navigator.pop(ctx, option),
+                    ),
+                ]),
+              ],
             ),
-            for (final option in _ProductSort.values)
-              ListTile(
-                title: Text(option.label),
-                trailing: option == _sort ? const Icon(Icons.check_rounded) : null,
-                onTap: () => Navigator.pop(ctx, option),
-              ),
-            const SizedBox(height: AppConstants.spaceS),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
     if (selected != null) _onSortSelected(selected);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Home's category circles ask the Search tab to show a category.
+    ref.listen<String?>(searchCategoryRequestProvider, (_, slug) {
+      if (slug == null) return;
+      _onCategorySelected(slug);
+      ref.read(searchCategoryRequestProvider.notifier).state = null;
+    });
+
+    const pad = EdgeInsets.symmetric(horizontal: AppConstants.pagePadding);
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _SearchField(controller: _searchController, onChanged: _onSearchChanged),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: _FilterButton(onTap: _openFilterSheet),
-            ),
-          ],
+        Padding(
+          padding: pad,
+          child: Row(
+            children: [
+              Expanded(
+                child: AppTextField(
+                  controller: _searchController,
+                  hint: 'What are you looking for?',
+                  icon: Icons.search_rounded,
+                  textInputAction: TextInputAction.search,
+                  onChanged: _onSearchChanged,
+                  trailing: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _searchController,
+                    builder: (context, value, _) {
+                      if (value.text.isNotEmpty) {
+                        return IconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          onPressed: _clearSearch,
+                        );
+                      }
+                      if (widget.onCamera == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return FieldIconButton(
+                        icon: Icons.photo_camera_outlined,
+                        tooltip: 'Search by photo',
+                        onPressed: widget.onCamera,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _FilterButton(onTap: _openFilterSheet),
+            ],
+          ),
         ),
-        _SortTabs(selected: _sort, onSelected: _onSortSelected),
-        const SizedBox(height: AppConstants.spaceS),
+        const SizedBox(height: 10),
+        Padding(
+          padding: pad,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: context.palette.border)),
+            ),
+            child: SortTabs(
+              selectedIndex: _sort.index,
+              onChanged: (i) => _onSortSelected(_ProductSort.values[i]),
+              items: [
+                for (final option in _ProductSort.values)
+                  SortTabItem(
+                    option.label,
+                    trailingIcon: option == _ProductSort.price
+                        ? (_sort == _ProductSort.price && _priceDescending
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded)
+                        : null,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         _CategoryChips(
           categories: _categories,
           isLoading: _categoriesLoading,
           selectedSlug: _selectedCategorySlug,
           onSelected: _onCategorySelected,
         ),
-        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppConstants.pagePadding, 6, AppConstants.pagePadding, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _isLoading || _total == null ? '' : '$_total products',
+                  style:
+                      AppFonts.sans(fontSize: 12, color: context.palette.hint),
+                ),
+              ),
+              if (widget.countRowTrailing != null) widget.countRowTrailing!,
+            ],
+          ),
+        ),
         Expanded(child: _buildBody()),
       ],
     );
@@ -297,45 +403,42 @@ class _ProductBrowserState extends State<ProductBrowser> {
     }
 
     if (_error != null && _products.isEmpty) {
-      return ProductErrorView(message: _error!, onRetry: () => _loadPage(reset: true));
+      return ProductErrorView(
+          message: _error!, onRetry: () => _loadPage(reset: true));
     }
 
     if (_products.isEmpty) {
       return ProductEmptyView(
-        icon: _activeQuery.isNotEmpty ? Icons.search_off_rounded : Icons.inventory_2_outlined,
+        icon: _activeQuery.isNotEmpty
+            ? Icons.search_off_rounded
+            : Icons.inventory_2_outlined,
         message: _activeQuery.isNotEmpty
             ? 'No products match "$_activeQuery".'
             : 'No products found in this category.',
       );
     }
 
+    final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
     return RefreshIndicator(
       onRefresh: () => _loadPage(reset: true),
       child: CustomScrollView(
         controller: _scrollController,
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            padding: const EdgeInsets.fromLTRB(
+                AppConstants.pagePadding, 4, AppConstants.pagePadding, 0),
             sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.62,
+              gridDelegate: ProductGridDelegate(
+                columns: isDesktop ? 4 : 2,
+                textScale: MediaQuery.textScalerOf(context).scale(1),
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final product = _products[index];
-                  return ProductCard(
+                  return ProductTile(
                     product: product,
+                    tag: shortCategoryLabel(product.category),
                     index: index,
-                    isFavorite: _favoriteIds.contains(product.id),
-                    onToggleFavorite: () => _toggleFavorite(product.id),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ProductDetailScreen(productId: product.id),
-                      ),
-                    ),
                   );
                 },
                 childCount: _products.length,
@@ -349,10 +452,17 @@ class _ProductBrowserState extends State<ProductBrowser> {
   }
 
   Widget _buildFooter() {
+    final palette = context.palette;
     if (_isLoadingMore) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.2),
+          ),
+        ),
       );
     }
     if (_paginationError != null) {
@@ -363,12 +473,13 @@ class _ProductBrowserState extends State<ProductBrowser> {
             Text(
               _paginationError!,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: AppFonts.sans(fontSize: 12, color: palette.inkMuted),
             ),
-            const SizedBox(height: 8),
-            OutlinedButton(
+            const SizedBox(height: 10),
+            SecondaryButton(
+              label: 'Retry',
+              expand: false,
               onPressed: () => _loadPage(reset: false),
-              child: const Text('Retry'),
             ),
           ],
         ),
@@ -377,83 +488,18 @@ class _ProductBrowserState extends State<ProductBrowser> {
     if (!_hasMore) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.check_circle_outline_rounded,
-              size: 18,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'You\'ve reached the end • ${_products.length} products',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+        child: Text(
+          'You\'ve reached the end · ${_products.length} products',
+          textAlign: TextAlign.center,
+          style: AppFonts.sans(fontSize: 11, color: palette.hint),
         ),
       );
     }
-    return const SizedBox.shrink();
+    return const SizedBox(height: 24);
   }
 }
 
-class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, required this.onChanged});
-
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.shadow.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: controller,
-          onChanged: onChanged,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: 'What are you looking for?',
-            prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.primary),
-            suffixIcon: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) {
-                if (value.text.isEmpty) return const SizedBox.shrink();
-                return IconButton(
-                  icon: const Icon(Icons.clear_rounded),
-                  onPressed: () {
-                    controller.clear();
-                    onChanged('');
-                  },
-                );
-              },
-            ),
-            filled: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(28),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Small pill button that opens the sort/filter sheet — the storefront
-/// reference's "Filter" affordance alongside the search field.
+/// 50×50 ink rounded-square button that opens the sort/filter sheet.
 class _FilterButton extends StatelessWidget {
   const _FilterButton({required this.onTap});
 
@@ -461,97 +507,30 @@ class _FilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(28),
-        onTap: onTap,
-        child: Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.tune_rounded, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: 6),
-              Text(
-                'Filter',
-                style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// "Popular / Latest / Best Sellers / Price" row — the active tab is
-/// underlined in the accent color, the rest read as plain secondary text.
-class _SortTabs extends StatelessWidget {
-  const _SortTabs({required this.selected, required this.onSelected});
-
-  final _ProductSort selected;
-  final ValueChanged<_ProductSort> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          for (final option in _ProductSort.values) ...[
-            InkWell(
-              onTap: () => onSelected(option),
-              borderRadius: BorderRadius.circular(AppConstants.radiusS),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          option.label,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: option == selected ? FontWeight.w700 : FontWeight.w500,
-                            color: option == selected
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        if (option == _ProductSort.price) ...[
-                          const SizedBox(width: 2),
-                          Icon(Icons.arrow_drop_down_rounded,
-                              size: 16,
-                              color: option == selected
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurfaceVariant),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    AnimatedContainer(
-                      duration: AppConstants.animFast,
-                      height: 2,
-                      width: option == selected ? 22 : 0,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ],
-                ),
+    final scheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(AppConstants.radiusInput);
+    return Tooltip(
+      message: 'Sort & filter',
+      child: Semantics(
+        button: true,
+        label: 'Sort and filter',
+        excludeSemantics: true,
+        child: Pressable(
+          child: Material(
+            color: scheme.primary,
+            borderRadius: radius,
+            child: InkWell(
+              borderRadius: radius,
+              onTap: onTap,
+              child: SizedBox(
+                width: AppConstants.fieldHeight,
+                height: AppConstants.fieldHeight,
+                child:
+                    Icon(Icons.tune_rounded, size: 20, color: scheme.onPrimary),
               ),
             ),
-            const SizedBox(width: 14),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -572,115 +551,50 @@ class _CategoryChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    const padding = EdgeInsets.symmetric(horizontal: AppConstants.pagePadding);
+
     if (isLoading) {
-      final theme = Theme.of(context);
       return SizedBox(
-        height: 66,
+        height: AppConstants.minTapTarget,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: 5,
-          separatorBuilder: (_, __) => const SizedBox(width: 14),
-          itemBuilder: (context, index) {
-            return Container(
-              width: 52,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(AppConstants.radiusM),
-              ),
-            ).animate(onPlay: (c) => c.repeat()).shimmer(duration: AppConstants.animShimmer);
-          },
+          padding: padding,
+          itemCount: 4,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, index) => Center(
+            child: const SkeletonBlock(
+                    width: 96, height: 34, radius: AppConstants.radiusPill)
+                .animate(onPlay: (c) => c.repeat())
+                .shimmer(
+                    duration: AppConstants.animShimmer,
+                    color: palette.surface.withValues(alpha: 0.5)),
+          ),
         ),
       );
     }
 
     return SizedBox(
-      height: 66,
+      height: AppConstants.minTapTarget,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: padding,
         itemCount: categories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final bool isAll = index == 0;
-          final String slug = isAll ? _kAllCategorySlug : categories[index - 1].slug;
+          final String slug =
+              isAll ? _kAllCategorySlug : categories[index - 1].slug;
           final String label = isAll ? 'All' : categories[index - 1].name;
-          final IconData icon = isAll ? CategoryIcons.all : CategoryIcons.iconFor(slug);
-          final bool selected = slug == selectedSlug;
-
-          return _CategoryTile(
+          final IconData icon =
+              isAll ? CategoryIcons.all : CategoryIcons.iconFor(slug);
+          return AppChip(
             label: label,
             icon: icon,
-            selected: selected,
+            selected: slug == selectedSlug,
             onTap: () => onSelected(slug),
           );
         },
-      ),
-    );
-  }
-}
-
-/// A category's icon+label tile in the horizontal row above the grid —
-/// the reference's compact "icon over label" treatment rather than a wide
-/// pill chip, so more categories fit on screen at once.
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppConstants.radiusM),
-        child: SizedBox(
-          width: 56,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: AppConstants.animFast,
-                curve: Curves.easeOut,
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: selected ? theme.colorScheme.primary : theme.colorScheme.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: selected ? theme.colorScheme.onPrimary : theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

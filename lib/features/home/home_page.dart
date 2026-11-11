@@ -2,25 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/widgets/circle_icon_button.dart';
-import '../../core/widgets/common_widgets.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/widgets.dart';
 import '../../providers/nav_provider.dart';
 import '../../providers/notifications_provider.dart';
 import '../products/models/product.dart';
-import '../products/screens/product_detail_screen.dart';
-import '../products/screens/sorted_products_screen.dart';
 import '../products/services/firestore_product_service.dart';
 import '../products/services/product_api_service.dart' show ApiException;
 import '../products/widgets/product_state_views.dart';
-import 'widgets/home_product_card.dart';
+import '../products/widgets/product_tile.dart';
+import '../search/photo_search.dart';
 
-/// Storefront-style Home tab: a search-first header (search field + camera
-/// + cart), a bold promo banner, a category grid, and a "Recommended" grid
-/// of real catalog products — modeled on a reference storefront mockup
-/// rather than the previous generic-app-dashboard layout (greeting hero,
-/// activity feed, etc.) this replaced.
+/// Home tab: logo + alerts bell, search field (opens the Search tab),
+/// hero banner, category circles and a "Recommended" product grid.
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -30,12 +27,7 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   final FirestoreProductService _service = FirestoreProductService();
-  late Future<List<Product>> _bestSellingFuture = _loadBestSelling();
-
-  // Wishlist toggle shown on each Best Selling card — local UI state only
-  // (see HomeProductCard's doc comment). There's no wishlist backend yet;
-  // this just makes the hearts tappable instead of dead decoration.
-  final Set<int> _favoriteIds = {};
+  late Future<List<Product>> _recommendedFuture = _loadRecommended();
 
   @override
   void dispose() {
@@ -43,132 +35,120 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
-  Future<List<Product>> _loadBestSelling() async {
-    final response = await _service.getProducts(limit: 6, sortBy: 'rating', order: 'desc');
+  /// Top-rated products — the same query the old "Best Selling" grid used.
+  Future<List<Product>> _loadRecommended() async {
+    final response =
+        await _service.getProducts(limit: 6, sortBy: 'rating', order: 'desc');
     return response.products;
   }
 
   Future<void> _onRefresh() async {
-    final future = _loadBestSelling();
-    setState(() => _bestSellingFuture = future);
+    final future = _loadRecommended();
+    setState(() => _recommendedFuture = future);
     await future;
   }
 
-  void _toggleFavorite(int productId) {
-    setState(() {
-      if (!_favoriteIds.remove(productId)) _favoriteIds.add(productId);
-    });
-  }
-
-  void _openProduct(Product product) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: product.id)),
-    );
-  }
-
-  void _openCategory(String slug) => context.push('/products', extra: slug);
-
-  void _openBestSelling() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const SortedProductsScreen(
-          title: 'Best Selling Product',
-          sortBy: 'rating',
-          order: 'desc',
-        ),
-      ),
-    );
+  void _openSearch({String? categorySlug}) {
+    if (categorySlug != null) {
+      ref.read(searchCategoryRequestProvider.notifier).state = categorySlug;
+    }
+    ref.read(bottomNavIndexProvider.notifier).state = kSearchTabIndex;
   }
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
-    final theme = Theme.of(context);
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
 
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: _onRefresh,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL)
-                .copyWith(top: AppConstants.spaceM, bottom: AppConstants.listBottomInset),
-            children: [
-              _Header(
-                onSearchTap: () =>
-                    ref.read(bottomNavIndexProvider.notifier).state = 1,
-              ),
-              const SizedBox(height: AppConstants.spaceL),
-              const _PromoBanner(),
-              const SizedBox(height: AppConstants.spaceXL),
-              Text(
-                'Categories',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: AppConstants.spaceM),
-              Row(
-                children: [
-                  for (int i = 0; i < _categoryPills.length; i++) ...[
-                    if (i > 0) const SizedBox(width: AppConstants.spaceS),
-                    Expanded(
-                      child: _CategoryTile(
-                        label: _categoryPills[i].$2,
-                        icon: _categoryPills[i].$3,
-                        onTap: () => _openCategory(_categoryPills[i].$1),
-                      ),
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppConstants.pagePadding, 14, AppConstants.pagePadding, 0),
+                sliver: SliverList.list(
+                  children: [
+                    const _Header(),
+                    const SizedBox(height: 16),
+                    _SearchBox(
+                      onTap: _openSearch,
+                      onCamera: () => searchByPhoto(context, ref),
                     ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: AppConstants.spaceXL),
-              SectionHeader(
-                title: 'Recommended',
-                actionLabel: 'See more',
-                onAction: _openBestSelling,
-              ),
-              const SizedBox(height: AppConstants.spaceM),
-              FutureBuilder<List<Product>>(
-                future: _bestSellingFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    final message = snapshot.error is ApiException
-                        ? (snapshot.error as ApiException).message
-                        : 'Could not load products right now.';
-                    return ProductErrorView(
-                      message: message,
-                      onRetry: () => setState(() => _bestSellingFuture = _loadBestSelling()),
-                    );
-                  }
-                  final products = snapshot.data ?? const [];
-                  if (products.isEmpty) {
-                    return const ProductEmptyView(message: 'No products found.');
-                  }
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: products.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: isDesktop ? 4 : 2,
-                      mainAxisSpacing: AppConstants.spaceM,
-                      crossAxisSpacing: AppConstants.spaceM,
-                      childAspectRatio: 0.66,
+                    const SizedBox(height: 18),
+                    _HeroBanner(onShopNow: () => context.push('/products')),
+                    const SizedBox(height: 22),
+                    const SectionHeader(title: 'Categories'),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final (slug, label, icon) in _categories)
+                          CategoryCircle(
+                            icon: icon,
+                            label: label,
+                            onTap: () => _openSearch(categorySlug: slug),
+                          ),
+                      ],
                     ),
-                    itemBuilder: (context, i) {
-                      final product = products[i];
-                      return HomeProductCard(
-                        product: product,
-                        isFavorite: _favoriteIds.contains(product.id),
-                        onToggleFavorite: () => _toggleFavorite(product.id),
-                        onTap: () => _openProduct(product),
+                    const SizedBox(height: 18),
+                    SectionHeader(
+                      title: 'Recommended',
+                      actionLabel: 'See more',
+                      onAction: _openSearch,
+                    ),
+                    const SizedBox(height: 8),
+                  ].entranceList(),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(AppConstants.pagePadding, 0,
+                    AppConstants.pagePadding, AppConstants.spaceL),
+                sliver: FutureBuilder<List<Product>>(
+                  future: _recommendedFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const SliverToBoxAdapter(
+                        child:
+                            ProductGridSkeleton(itemCount: 4, shrinkWrap: true),
                       );
-                    },
-                  );
-                },
+                    }
+                    if (snapshot.hasError) {
+                      final message = snapshot.error is ApiException
+                          ? (snapshot.error as ApiException).message
+                          : 'Could not load products right now.';
+                      return SliverToBoxAdapter(
+                        child: ProductErrorView(
+                          message: message,
+                          onRetry: () => setState(
+                              () => _recommendedFuture = _loadRecommended()),
+                        ),
+                      );
+                    }
+                    final products = snapshot.data ?? const [];
+                    if (products.isEmpty) {
+                      return const SliverToBoxAdapter(
+                        child: ProductEmptyView(message: 'No products found.'),
+                      );
+                    }
+                    return SliverGrid(
+                      gridDelegate: ProductGridDelegate(
+                          columns: isDesktop ? 4 : 2, textScale: textScale),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) => ProductTile(
+                          product: products[i],
+                          tag: homeTagFor(products[i]),
+                          index: i,
+                        ),
+                        childCount: products.length,
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -177,165 +157,89 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// FakeStoreAPI's four real categories — see CategoryIcons' doc comment.
-  /// Hardcoded rather than fetched: there are only ever these four, so a
-  /// network round-trip just to draw four pills isn't worth the loading
-  /// state it would need.
-  static const _categoryPills = <(String, String, IconData)>[
-    ('electronics', 'Electronics', Icons.devices_rounded),
-    ("men's clothing", "Men's Fashion", Icons.checkroom_rounded),
-    ("women's clothing", "Women's Fashion", Icons.checkroom_rounded),
-    ('jewelery', 'Jewelry', Icons.diamond_rounded),
+  /// The catalog's four categories.
+  static const _categories = <(String, String, IconData)>[
+    ('electronics', 'Electronics', Icons.devices_other_outlined),
+    ("men's clothing", "Men's\nFashion", Icons.checkroom_outlined),
+    ("women's clothing", "Women's\nFashion", Icons.woman_outlined),
+    ('jewelery', 'Jewelry', Icons.diamond_outlined),
   ];
 }
 
-/// Top bar: a tappable search field (opens the Search tab) plus a camera
-/// shortcut and the cart icon — mirrors a storefront's search-first header
-/// rather than a plain title + separate icon row.
-class _Header extends StatelessWidget {
-  const _Header({required this.onSearchTap});
+extension on List<Widget> {
+  /// Fades the header blocks in one after another.
+  List<Widget> entranceList() => [
+        for (final (i, w) in indexed) w.entrance(index: i ~/ 2),
+      ];
+}
 
-  final VoidCallback onSearchTap;
+class _Header extends ConsumerWidget {
+  const _Header();
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
-        Expanded(
-          child: Material(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(AppConstants.radiusL),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppConstants.radiusL),
-              onTap: onSearchTap,
-              child: Container(
-                height: 46,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                  border: Border.all(color: theme.colorScheme.outlineVariant),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search_rounded, size: 20, color: theme.colorScheme.onSurfaceVariant),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'What are you looking for?',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                    ),
-                    Icon(Icons.camera_alt_outlined, size: 19, color: theme.colorScheme.onSurfaceVariant),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
+        const GoBuyLogo(size: 26),
+        const Spacer(),
         // Alerts moved out of the bottom nav into this bell.
-        Consumer(
-          builder: (context, ref, _) => CircleIconButton(
-            icon: Icons.notifications_none_rounded,
-            tooltip: 'Alerts',
-            showDot: ref.watch(hasUnreadNotificationsProvider),
-            onPressed: () => context.push('/notifications'),
-          ),
+        CircleIconButton(
+          icon: Icons.notifications_none_rounded,
+          tooltip: 'Alerts',
+          showDot: ref.watch(hasUnreadNotificationsProvider),
+          onPressed: () => context.push('/notifications'),
         ),
       ],
     );
   }
 }
 
-/// Hero promo card in the storefront reference's bold coral banner style —
-/// a "Best Seller!" tag, a short pitch, and a "Shop Now!" pill that jumps
-/// straight to the full catalog (there's no live promotions backend to
-/// point at a specific deal instead).
-class _PromoBanner extends StatelessWidget {
-  const _PromoBanner();
+/// Looks like a search field; tapping it opens the Search tab.
+class _SearchBox extends StatelessWidget {
+  const _SearchBox({required this.onTap, required this.onCamera});
+
+  final VoidCallback onTap;
+  final VoidCallback onCamera;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final radius = BorderRadius.circular(AppConstants.radiusInput);
     return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppConstants.radiusL),
-      clipBehavior: Clip.antiAlias,
+      color: palette.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: palette.border),
+      ),
       child: InkWell(
-        onTap: () => context.push('/products'),
-        child: Container(
-          padding: const EdgeInsets.all(AppConstants.spaceL),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: AppColors.bannerGradient,
-            ),
-          ),
-          child: Stack(
+        borderRadius: radius,
+        onTap: onTap,
+        child: SizedBox(
+          height: AppConstants.fieldHeight,
+          child: Row(
             children: [
-              Positioned(
-                right: -18,
-                bottom: -26,
-                child: Icon(
-                  Icons.shopping_bag_rounded,
-                  size: 130,
-                  color: Colors.white.withValues(alpha: 0.14),
+              const SizedBox(width: 14),
+              Icon(Icons.search_rounded, size: 19, color: palette.hint),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: 'Search products',
+                  excludeSemantics: true,
+                  child: Text(
+                    'What are you looking for?',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppFonts.sans(fontSize: 14, color: palette.hint),
+                  ),
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.bolt_rounded, size: 13, color: Colors.white),
-                        SizedBox(width: 4),
-                        Text(
-                          'Best Seller!',
-                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const SizedBox(
-                    width: 200,
-                    child: Text(
-                      'Discover the perfect shopping journey!',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Shop Now!',
-                      style: TextStyle(
-                        color: AppColors.bannerGradient[1],
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
+              FieldIconButton(
+                icon: Icons.photo_camera_outlined,
+                tooltip: 'Search by photo',
+                onPressed: onCamera,
               ),
+              const SizedBox(width: 3),
             ],
           ),
         ),
@@ -344,48 +248,103 @@ class _PromoBanner extends StatelessWidget {
   }
 }
 
-/// One "Categories" grid tile: icon in a soft rounded-square badge, label
-/// underneath — the storefront reference's category-grid treatment, in
-/// place of the previous horizontal-scrolling pill row.
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.label, required this.icon, required this.onTap});
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner({required this.onShopNow});
 
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback onShopNow;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.palette;
+    final radius = BorderRadius.circular(AppConstants.radiusL);
+
     return Material(
-      color: Colors.transparent,
+      color: palette.heroCard,
+      borderRadius: radius,
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppConstants.radiusM),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+        onTap: onShopNow,
+        child: Stack(
+          children: [
+            Positioned(
+              right: -14,
+              bottom: -30,
+              child: ExcludeSemantics(
+                child: Icon(
+                  Icons.shopping_bag_outlined,
+                  size: 150,
+                  color: palette.gold.withValues(alpha: 0.35),
                 ),
-                child: Icon(icon, size: 24, color: theme.colorScheme.primary),
               ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: palette.gold.withValues(alpha: 0.18),
+                      borderRadius:
+                          BorderRadius.circular(AppConstants.radiusPill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.bolt_rounded,
+                            size: 13, color: palette.goldLight),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Best Seller!',
+                          style: AppFonts.sans(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: palette.goldLight),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 250),
+                    child: Text(
+                      'Discover the perfect shopping journey!',
+                      style: AppFonts.serif(
+                        fontSize: 23,
+                        fontWeight: FontWeight.w400,
+                        color: palette.onHeroCard,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Pressable(
+                    child: Material(
+                      color: AppColors.background,
+                      shape: const StadiumBorder(),
+                      child: InkWell(
+                        customBorder: const StadiumBorder(),
+                        onTap: onShopNow,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
+                          child: Text(
+                            'Shop Now',
+                            style: AppFonts.sans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.ink),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
