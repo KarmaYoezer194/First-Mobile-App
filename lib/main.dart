@@ -1,11 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'core/constants/app_constants.dart';
-import 'core/constants/social_auth_config.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 import 'providers/theme_provider.dart';
@@ -14,18 +11,8 @@ import 'routes/app_router.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  if (kIsWeb) {
-    // Unlike Android/iOS, the Facebook web SDK isn't picked up from a
-    // manifest/plist — it has to be initialized once before the first
-    // FacebookAuth.instance.login() call, or that call fails with
-    // "window.FB is undefined".
-    await FacebookAuth.i.webAndDesktopInitialize(
-      appId: SocialAuthConfig.facebookAppId,
-      cookie: true,
-      xfbml: true,
-      version: 'v19.0',
-    );
-  }
+  // Web sign-in with Google / Apple / Facebook goes through Firebase's own
+  // popup (see AuthService), so the Facebook JS SDK isn't initialized here.
   runApp(const ProviderScope(child: PremiumAuthApp()));
 }
 

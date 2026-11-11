@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_storage/firebase_storage.dart' as storage;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -69,6 +70,9 @@ class AuthService {
   /// time a given Google account signs in — same as email sign-up, there's
   /// no separate "register with Google" step.
   Future<AppUser> signInWithGoogle() async {
+    if (kIsWeb) {
+      return _signInWithWebPopup(fb.GoogleAuthProvider()..addScope('email'));
+    }
     try {
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
@@ -94,6 +98,11 @@ class AuthService {
   /// copied onto the Firebase profile's `displayName` right here, once,
   /// while it's still available.
   Future<AppUser> signInWithApple() async {
+    if (kIsWeb) {
+      return _signInWithWebPopup(fb.OAuthProvider('apple.com')
+        ..addScope('email')
+        ..addScope('name'));
+    }
     try {
       final rawNonce = _generateNonce();
       final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
@@ -135,6 +144,9 @@ class AuthService {
   }
 
   Future<AppUser> signInWithFacebook() async {
+    if (kIsWeb) {
+      return _signInWithWebPopup(fb.FacebookAuthProvider()..addScope('email'));
+    }
     try {
       final result = await FacebookAuth.instance.login(permissions: const ['email', 'public_profile']);
 
@@ -148,6 +160,23 @@ class AuthService {
 
       final credential = fb.FacebookAuthProvider.credential(accessToken.tokenString);
       final userCredential = await _auth.signInWithCredential(credential);
+      return _toAppUser(userCredential.user)!;
+    } on fb.FirebaseAuthException catch (e) {
+      throw AuthException(_messageFor(e));
+    }
+  }
+
+  /// Web sign-in for Google / Apple / Facebook through Firebase's own popup.
+  ///
+  /// The native plugins' web flows check the page's exact origin (including
+  /// its port) against the OAuth client, which fails with
+  /// "origin_mismatch" on `flutter run -d chrome`. Firebase's popup signs in
+  /// through `<project>.firebaseapp.com`, which is already registered, and
+  /// only needs the page's domain (localhost is allowed by default) to be in
+  /// Firebase Authentication's authorized domains.
+  Future<AppUser> _signInWithWebPopup(fb.AuthProvider provider) async {
+    try {
+      final userCredential = await _auth.signInWithPopup(provider);
       return _toAppUser(userCredential.user)!;
     } on fb.FirebaseAuthException catch (e) {
       throw AuthException(_messageFor(e));
@@ -265,6 +294,10 @@ class AuthService {
 
   Future<void> signOut() async {
     await _auth.signOut();
+    // On web, sign-in goes through Firebase's popup, so there's no native
+    // Google/Facebook session to clear (and FB.logout() can wait forever
+    // when the Facebook SDK isn't set up).
+    if (kIsWeb) return;
     // Best-effort: also drop the native Google/Facebook sessions so the
     // next "Continue with ..." tap shows the account picker again instead
     // of silently reusing whichever account was cached. Neither of these
@@ -306,6 +339,17 @@ class AuthService {
         return 'No internet connection. Please check your network and try again.';
       case 'too-many-requests':
         return 'Too many attempts. Please wait a moment and try again.';
+      case 'popup-closed-by-user':
+      case 'cancelled-popup-request':
+        return 'Sign-in cancelled.';
+      case 'popup-blocked':
+        return 'Your browser blocked the sign-in window. Allow pop-ups for this site and try again.';
+      case 'operation-not-allowed':
+        return 'This sign-in method isn\'t turned on yet.';
+      case 'unauthorized-domain':
+        return 'This web address isn\'t allowed to sign in yet.';
+      case 'account-exists-with-different-credential':
+        return 'An account already exists with the same email but a different sign-in method.';
       default:
         return e.message ?? 'Something went wrong. Please try again.';
     }

@@ -80,10 +80,9 @@ flutter run -d chrome --web-port 5000   # easiest on this machine
 # or an Android emulator / physical device
 ```
 
-Keep the fixed `--web-port 5000` (or use the "GoBuy (Chrome, port 5000)"
-run configuration in VS Code): Google sign-in only works from addresses
-registered in Google Cloud, and plain `flutter run -d chrome` picks a new
-random port every time.
+A fixed port (`--web-port 5000`, or the "GoBuy (Chrome, port 5000)" run
+configuration in VS Code) is optional; it just keeps the address the same
+between runs.
 
 ## iOS
 
@@ -122,13 +121,12 @@ actually work — none of this can be done from here:
   ID — paste that into the `google-signin-client_id` meta tag in
   [web/index.html](web/index.html) (already done). Skipping this is why
   "Continue with Google" fails immediately on web with a generic error.
-  Then register the web address the app runs at, or Google shows
-  **"Error 400: origin_mismatch"**: Google Cloud console → **APIs &
-  Services → Credentials** → the **Web client** OAuth client (the same ID
-  as in `web/index.html`) → **Authorized JavaScript origins** → add
-  `http://localhost:5000` and `http://localhost` → Save (it can take a few
-  minutes to apply), and always run on port 5000 (see "Testing the app").
-  https://console.cloud.google.com/apis/credentials?project=premium-auth-app-97063
+  On web, Google / Apple / Facebook sign-in all go through Firebase's
+  own popup (`signInWithPopup`), so they only need the provider enabled
+  in Firebase Authentication and the page's domain listed under
+  **Authentication → Settings → Authorized domains** (`localhost` is
+  there by default). The port doesn't matter, so the old "Error 400:
+  origin_mismatch" from the `google_sign_in` web popup no longer applies.
 
 - **Apple** — Firebase console → **Authentication → Sign-in method →
   Apple → Enable**. Native iOS also needs the **Sign in with Apple**
